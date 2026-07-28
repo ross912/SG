@@ -1,0 +1,458 @@
+{
+  "generated_at": "2026-07-23 18:28:23",
+  "method": "fixed_horizon_point_in_time_rank_audit",
+  "metadata": {
+    "stocks": 5178,
+    "periods": 110,
+    "rows": 502644,
+    "holding_days": 10,
+    "skipped_current_st": 207,
+    "execution": "signal_close_to_next_open_then_holding_close",
+    "limit_rule": "next_open_at_limit_up_is_not_buyable",
+    "survivorship_bias": "当前股票池缺少历史退市股票，结果仍存在幸存者偏差"
+  },
+  "factor_audit": {
+    "medium_momentum": {
+      "train": {
+        "mean_rank_ic": -0.02427,
+        "ic_ir": -0.1708,
+        "ic_periods": 73,
+        "portfolio": {
+          "absolute": {
+            "annual_return": -0.369192,
+            "sharpe": -0.9202,
+            "max_drawdown": -0.753417
+          },
+          "excess": {
+            "annual_return": -0.380326,
+            "sharpe": -1.475,
+            "max_drawdown": -0.755794
+          },
+          "average_turnover": 0.486301,
+          "samples": 73
+        }
+      },
+      "validation": {
+        "mean_rank_ic": -0.009116,
+        "ic_ir": -0.0672,
+        "ic_periods": 24,
+        "portfolio": {
+          "absolute": {
+            "annual_return": -0.026328,
+            "sharpe": 0.0535,
+            "max_drawdown": -0.221814
+          },
+          "excess": {
+            "annual_return": -0.378119,
+            "sharpe": -2.4366,
+            "max_drawdown": -0.391011
+          },
+          "average_turnover": 0.44375,
+          "samples": 24
+        }
+      },
+      "test": {
+        "mean_rank_ic": 0.002391,
+        "ic_ir": 0.014,
+        "ic_periods": 13,
+        "portfolio": {
+          "absolute": {
+            "annual_return": -0.284396,
+            "sharpe": -0.2226,
+            "max_drawdown": -0.393683
+          },
+          "excess": {
+            "annual_return": -0.053334,
+            "sharpe": 0.1425,
+            "max_drawdown": -0.290353
+          },
+          "average_turnover": 0.488462,
+          "samples": 13
+        }
+      }
+    },
+    "trend_quality": {
+      "train": {
+        "mean_rank_ic": -0.023487,
+        "ic_ir": -0.1584,
+        "ic_periods": 73,
+        "portfolio": {
+          "absolute": {
+            "annual_return": -0.221764,
+            "sharpe": -0.4242,
+            "max_drawdown": -0.60195
+          },
+          "excess": {
+            "annual_return": -0.236485,
+            "sharpe": -0.7832,
+            "max_drawdown": -0.576404
+          },
+          "average_turnover": 0.339726,
+          "samples": 73
+        }
+      },
+      "validation": {
+        "mean_rank_ic": -0.010723,
+        "ic_ir": -0.0807,
+        "ic_periods": 24,
+        "portfolio": {
+          "absolute": {
+            "annual_return": 0.004253,
+            "sharpe": 0.1649,
+            "max_drawdown": -0.246171
+          },
+          "excess": {
+            "annual_return": -0.35815,
+            "sharpe": -1.9289,
+            "max_drawdown": -0.386543
+          },
+          "average_turnover": 0.325,
+          "samples": 24
+        }
+      },
+      "test": {
+        "mean_rank_ic": 0.007334,
+        "ic_ir": 0.043,
+        "ic_periods": 13,
+        "portfolio": {
+          "absolute": {
+            "annual_return": -0.438365,
+            "sharpe": -0.6134,
+            "max_drawdown": -0.418382
+          },
+          "excess": {
+            "annual_return": -0.252185,
+            "sharpe": -0.3155,
+            "max_drawdown": -0.317289
+          },
+          "average_turnover": 0.346154,
+          "samples": 13
+        }
+      }
+    },
+    "multi_period_consistency": {
+      "train": {
+        "mean_rank_ic": -0.061766,
+        "ic_ir": -0.4938,
+        "ic_periods": 73,
+        "portfolio": {
+          "absolute": {
+            "annual_return": -0.52401,
+            "sharpe": -1.4583,
+            "max_drawdown": -0.871267
+          },
+          "excess": {
+            "annual_return": -0.538093,
+            "sharpe": -1.8983,
+            "max_drawdown": -0.884843
+          },
+          "average_turnover": 0.764384,
+          "samples": 73
+        }
+      },
+      "validation": {
+        "mean_rank_ic": -0.087953,
+        "ic_ir": -0.8426,
+        "ic_periods": 24,
+        "portfolio": {
+          "absolute": {
+            "annual_return": 0.125959,
+            "sharpe": 0.4874,
+            "max_drawdown": -0.251056
+          },
+          "excess": {
+            "annual_return": -0.28277,
+            "sharpe": -0.8976,
+            "max_drawdown": -0.402767
+          },
+          "average_turnover": 0.783333,
+          "samples": 24
+        }
+      },
+      "test": {
+        "mean_rank_ic": 0.016747,
+        "ic_ir": 0.1166,
+        "ic_periods": 13,
+        "portfolio": {
+          "absolute": {
+            "annual_return": -0.263662,
+            "sharpe": -0.2529,
+            "max_drawdown": -0.330132
+          },
+          "excess": {
+            "annual_return": -0.037782,
+            "sharpe": 0.144,
+            "max_drawdown": -0.221759
+          },
+          "average_turnover": 0.784615,
+          "samples": 13
+        }
+      }
+    },
+    "path_efficiency": {
+      "train": {
+        "mean_rank_ic": -0.055524,
+        "ic_ir": -0.5105,
+        "ic_periods": 73,
+        "portfolio": {
+          "absolute": {
+            "annual_return": -0.497362,
+            "sharpe": -1.4943,
+            "max_drawdown": -0.858035
+          },
+          "excess": {
+            "annual_return": -0.511819,
+            "sharpe": -2.0614,
+            "max_drawdown": -0.854322
+          },
+          "average_turnover": 0.735616,
+          "samples": 73
+        }
+      },
+      "validation": {
+        "mean_rank_ic": -0.081307,
+        "ic_ir": -0.8484,
+        "ic_periods": 24,
+        "portfolio": {
+          "absolute": {
+            "annual_return": 0.00986,
+            "sharpe": 0.1894,
+            "max_drawdown": -0.277957
+          },
+          "excess": {
+            "annual_return": -0.360901,
+            "sharpe": -1.4192,
+            "max_drawdown": -0.436018
+          },
+          "average_turnover": 0.7875,
+          "samples": 24
+        }
+      },
+      "test": {
+        "mean_rank_ic": 0.001589,
+        "ic_ir": 0.0118,
+        "ic_periods": 13,
+        "portfolio": {
+          "absolute": {
+            "annual_return": -0.186518,
+            "sharpe": -0.0183,
+            "max_drawdown": -0.357876
+          },
+          "excess": {
+            "annual_return": 0.070269,
+            "sharpe": 0.3755,
+            "max_drawdown": -0.25137
+          },
+          "average_turnover": 0.757692,
+          "samples": 13
+        }
+      }
+    },
+    "downside_risk_control": {
+      "train": {
+        "mean_rank_ic": 0.094432,
+        "ic_ir": 0.4385,
+        "ic_periods": 73,
+        "portfolio": {
+          "absolute": {
+            "annual_return": 0.095508,
+            "sharpe": 0.7693,
+            "max_drawdown": -0.111694
+          },
+          "excess": {
+            "annual_return": 0.011003,
+            "sharpe": 0.1694,
+            "max_drawdown": -0.30817
+          },
+          "average_turnover": 0.45411,
+          "samples": 73
+        }
+      },
+      "validation": {
+        "mean_rank_ic": 0.038303,
+        "ic_ir": 0.2088,
+        "ic_periods": 24,
+        "portfolio": {
+          "absolute": {
+            "annual_return": 0.001553,
+            "sharpe": 0.0659,
+            "max_drawdown": -0.055555
+          },
+          "excess": {
+            "annual_return": -0.380842,
+            "sharpe": -2.9013,
+            "max_drawdown": -0.309465
+          },
+          "average_turnover": 0.472917,
+          "samples": 24
+        }
+      },
+      "test": {
+        "mean_rank_ic": 0.019721,
+        "ic_ir": 0.097,
+        "ic_periods": 13,
+        "portfolio": {
+          "absolute": {
+            "annual_return": -0.207926,
+            "sharpe": -1.9316,
+            "max_drawdown": -0.129959
+          },
+          "excess": {
+            "annual_return": -0.046332,
+            "sharpe": -0.0304,
+            "max_drawdown": -0.148559
+          },
+          "average_turnover": 0.630769,
+          "samples": 13
+        }
+      }
+    },
+    "drawdown_control": {
+      "train": {
+        "mean_rank_ic": 0.00049,
+        "ic_ir": 0.0031,
+        "ic_periods": 73,
+        "portfolio": {
+          "absolute": {
+            "annual_return": -0.465789,
+            "sharpe": -1.4601,
+            "max_drawdown": -0.846264
+          },
+          "excess": {
+            "annual_return": -0.479439,
+            "sharpe": -2.2297,
+            "max_drawdown": -0.836248
+          },
+          "average_turnover": 0.976027,
+          "samples": 73
+        }
+      },
+      "validation": {
+        "mean_rank_ic": -0.041681,
+        "ic_ir": -0.342,
+        "ic_periods": 24,
+        "portfolio": {
+          "absolute": {
+            "annual_return": -0.180754,
+            "sharpe": -0.7856,
+            "max_drawdown": -0.247063
+          },
+          "excess": {
+            "annual_return": -0.488402,
+            "sharpe": -3.4555,
+            "max_drawdown": -0.414217
+          },
+          "average_turnover": 0.98125,
+          "samples": 24
+        }
+      },
+      "test": {
+        "mean_rank_ic": 0.068849,
+        "ic_ir": 0.6176,
+        "ic_periods": 13,
+        "portfolio": {
+          "absolute": {
+            "annual_return": 0.485662,
+            "sharpe": 1.0867,
+            "max_drawdown": -0.228887
+          },
+          "excess": {
+            "annual_return": 0.924066,
+            "sharpe": 2.0867,
+            "max_drawdown": -0.111553
+          },
+          "average_turnover": 0.992308,
+          "samples": 13
+        }
+      }
+    }
+  },
+  "selection": {
+    "selected": [],
+    "rejected": {
+      "medium_momentum": [
+        "训练期 Rank IC 不为正",
+        "验证期 Rank IC 不为正",
+        "验证期单因子超额 Sharpe 不为正"
+      ],
+      "trend_quality": [
+        "训练期 Rank IC 不为正",
+        "验证期 Rank IC 不为正",
+        "验证期单因子超额 Sharpe 不为正"
+      ],
+      "multi_period_consistency": [
+        "训练期 Rank IC 不为正",
+        "验证期 Rank IC 不为正",
+        "验证期单因子超额 Sharpe 不为正"
+      ],
+      "path_efficiency": [
+        "训练期 Rank IC 不为正",
+        "验证期 Rank IC 不为正",
+        "验证期单因子超额 Sharpe 不为正"
+      ],
+      "downside_risk_control": [
+        "验证期单因子超额 Sharpe 不为正"
+      ],
+      "drawdown_control": [
+        "验证期 Rank IC 不为正",
+        "验证期单因子超额 Sharpe 不为正"
+      ]
+    },
+    "train_spearman_correlation": {
+      "medium_momentum": {
+        "medium_momentum": 1.0,
+        "trend_quality": 0.8696,
+        "multi_period_consistency": 0.4668,
+        "path_efficiency": 0.3947,
+        "downside_risk_control": -0.0979,
+        "drawdown_control": 0.3784
+      },
+      "trend_quality": {
+        "medium_momentum": 0.8696,
+        "trend_quality": 1.0,
+        "multi_period_consistency": 0.6153,
+        "path_efficiency": 0.5603,
+        "downside_risk_control": -0.113,
+        "drawdown_control": 0.5144
+      },
+      "multi_period_consistency": {
+        "medium_momentum": 0.4668,
+        "trend_quality": 0.6153,
+        "multi_period_consistency": 1.0,
+        "path_efficiency": 0.8572,
+        "downside_risk_control": 0.0227,
+        "drawdown_control": 0.664
+      },
+      "path_efficiency": {
+        "medium_momentum": 0.3947,
+        "trend_quality": 0.5603,
+        "multi_period_consistency": 0.8572,
+        "path_efficiency": 1.0,
+        "downside_risk_control": 0.0801,
+        "drawdown_control": 0.6412
+      },
+      "downside_risk_control": {
+        "medium_momentum": -0.0979,
+        "trend_quality": -0.113,
+        "multi_period_consistency": 0.0227,
+        "path_efficiency": 0.0801,
+        "downside_risk_control": 1.0,
+        "drawdown_control": 0.4738
+      },
+      "drawdown_control": {
+        "medium_momentum": 0.3784,
+        "trend_quality": 0.5144,
+        "multi_period_consistency": 0.664,
+        "path_efficiency": 0.6412,
+        "downside_risk_control": 0.4738,
+        "drawdown_control": 1.0
+      }
+    }
+  },
+  "production_gate": {
+    "passed": false,
+    "reasons": [
+      "没有因子同时通过训练期和验证期单因子门槛"
+    ]
+  }
+}

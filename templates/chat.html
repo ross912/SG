@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}数据问答 · SG Quant{% endblock %}
+{% block content %}
+<section class="hero compact">
+  <div>
+    <div class="eyebrow">CONTEXT-AWARE CHAT · 数据问答</div>
+    <h1>向市场研究台提问</h1>
+    <p>DeepSeek 综合平台行情、四份榜单、个股日线与按需联网检索的近期资讯回答。</p>
+  </div>
+</section>
+<section class="card chat-card">
+  <div class="chat-context">
+    <div class="context-primary">
+      <span class="context-light"></span>
+      <strong>平台数据已接入</strong>
+      <span id="searchState">智能联网待命</span>
+    </div>
+    <label class="network-mode" for="webSearchMode">
+      <span>资讯检索</span>
+      <select id="webSearchMode">
+        <option value="auto" selected>智能触发</option>
+        <option value="on">本次始终联网</option>
+        <option value="off">仅使用本地数据</option>
+      </select>
+    </label>
+  </div>
+  <div id="messages" class="messages">
+    <div class="message assistant"><span class="message-role">SG RESEARCH</span><div class="message-body"><p>可以询问市场强弱、榜单变化、新闻线索或个股信息。涉及最新消息时会按需联网，并在回答下方列出资讯来源。</p></div></div>
+  </div>
+  <div class="prompt-suggestions" aria-label="常用问题">
+    <button type="button" data-question="今天市场整体强弱如何？">判断今日强弱</button>
+    <button type="button" data-question="请总结今天榜单中最值得关注的共同特征。">概括榜单特征</button>
+    <button type="button" data-question="今天的财经新闻有哪些可能影响市场的主线？">提炼新闻主线</button>
+  </div>
+  <form id="chatForm" class="chat-form">
+    <div class="composer">
+      <textarea id="question" maxlength="1200" rows="3" placeholder="输入市场、榜单、新闻或个股问题…" required></textarea>
+      <span class="composer-hint">Enter 发送 · Shift + Enter 换行</span>
+    </div>
+    <button id="sendButton" class="primary" type="submit">发送问题</button>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  const history = [];
+  function addMessage(role, content = '') {
+    const node = document.createElement('div');
+    node.className = `message ${role}`;
+    const label = document.createElement('span');
+    label.className = 'message-role';
+    label.textContent = role === 'user' ? 'YOU' : 'SG RESEARCH';
+    const body = document.createElement('div');
+    body.className = 'message-body';
+    body.textContent = content;
+    node.append(label, body);
+    document.getElementById('messages').appendChild(node);
+    node.scrollIntoView({behavior:'smooth', block:'end'});
+    return body;
+  }
+
+  function renderAnswerMarkdown(node, markdown, immediate = false) {
+    node.dataset.markdown = markdown;
+    const render = () => {
+      node.innerHTML = SGQ.renderMarkdown(node.dataset.markdown || '');
+      node._renderFrame = null;
+    };
+    if (immediate) {
+      if (node._renderFrame) cancelAnimationFrame(node._renderFrame);
+      render();
+    } else if (!node._renderFrame) {
+      node._renderFrame = requestAnimationFrame(render);
+    }
+  }
+
+  function showPlainMessage(node, message) {
+    if (node._renderFrame) cancelAnimationFrame(node._renderFrame);
+    node._renderFrame = null;
+    delete node.dataset.markdown;
+    node.textContent = message;
+  }
+
+  function renderWebSources(messageNode, sources) {
+    if (!sources.length) return;
+    const section = document.createElement('div');
+    section.className = 'web-sources';
+    const heading = document.createElement('span');
+    heading.className = 'web-sources-label';
+    heading.textContent = `本次联网来源 · ${sources.length}`;
+    section.appendChild(heading);
+    sources.slice(0, 6).forEach((source, index) => {
+      if (!String(source.url || '').startsWith('http')) return;
+      const link = document.createElement('a');
+      link.href = source.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = `[联网${index + 1}] ${source.source || '公开资讯'} · ${source.title}`;
+      section.appendChild(link);
+    });
+    messageNode.appendChild(section);
+  }
+
+  async function ask(question) {
+    addMessage('user', question);
+    const answerNode = addMessage('assistant', '');
+    answerNode.classList.add('streaming');
+    const mode = document.getElementById('webSearchMode').value;
+    const searchState = document.getElementById('searchState');
+    searchState.textContent = mode === 'off' ? '仅使用本地数据' : '正在判断是否需要联网…';
+    const response = await SGQ.api('/api/chat', {
+      method:'POST',
+      body:JSON.stringify({question, history:history.slice(-10), web_search:mode})
+    });
+    if (!response.ok) {
+      const data = await response.json();
+      showPlainMessage(answerNode, data.error || '请求失败');
+      answerNode.classList.remove('streaming');
+      searchState.textContent = '请求失败';
+      return;
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', answer = '', webSources = [];
+    while (true) {
+      const {value, done} = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), {stream:!done});
+      const events = buffer.split('\n\n');
+      buffer = events.pop() || '';
+      for (const event of events) {
+        const line = event.split('\n').find(item => item.startsWith('data:'));
+        if (!line) continue;
+        const data = JSON.parse(line.slice(5).trim());
+        if (data.status) searchState.textContent = data.status;
+        if (data.search) {
+          webSources = data.search.results || [];
+          const label = answerNode.parentElement.querySelector('.message-role');
+          if (data.search.triggered) label.textContent = `SG RESEARCH · 联网 ${data.search.count} 条`;
+        }
+        if (data.delta) {
+          answer += data.delta;
+          renderAnswerMarkdown(answerNode, answer);
+          answerNode.scrollIntoView({block:'end'});
+        }
+        if (data.error) {
+          showPlainMessage(answerNode, data.error);
+          answer = '';
+        }
+      }
+      if (done) break;
+    }
+    if (answer) renderAnswerMarkdown(answerNode, answer, true);
+    answerNode.classList.remove('streaming');
+    renderWebSources(answerNode.parentElement, webSources);
+    if (webSources.length) searchState.textContent = `已结合 ${webSources.length} 条近期资讯`;
+    if (answer) history.push({role:'user', content:question}, {role:'assistant', content:answer});
+  }
+
+  document.getElementById('chatForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const input = document.getElementById('question');
+    const question = input.value.trim();
+    if (!question) return;
+    input.value = '';
+    const button = document.getElementById('sendButton');
+    button.disabled = true;
+    try { await ask(question); } catch (error) { addMessage('assistant', error.message); }
+    finally { button.disabled = false; input.focus(); }
+  });
+  document.getElementById('question').addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      document.getElementById('chatForm').requestSubmit();
+    }
+  });
+  document.querySelectorAll('[data-question]').forEach(button => {
+    button.addEventListener('click', () => {
+      const input = document.getElementById('question');
+      input.value = button.dataset.question;
+      input.focus();
+    });
+  });
+</script>
+{% endblock %}

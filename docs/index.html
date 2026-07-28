@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="SG：AI 驱动的 A 股研究工作台，面向 AI 产品经理岗位的完整产品案例。">
+  <meta name="theme-color" content="#f3f6f8">
+  <title>SG｜AI 产品经理作品集案例</title>
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <a class="skip-link" href="#case">跳到案例正文</a>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="SG 首页">
+      <span class="brand-mark">SG</span>
+      <span class="brand-copy">A-share research<br>decision system</span>
+    </a>
+    <nav aria-label="案例导航">
+      <a href="#product">产品</a>
+      <a href="#ai">AI 设计</a>
+      <a href="#evidence">证据</a>
+      <a href="#reflection">复盘</a>
+    </nav>
+    <a class="repo-link" href="https://github.com/ross912/SG">查看源码 ↗</a>
+  </header>
+
+  <main id="case">
+    <section class="hero" id="top">
+      <div class="hero-copy">
+        <p class="eyebrow">AI PRODUCT CASE / 2026</p>
+        <h1>先证明数据可信，<br>再让 AI 开口。</h1>
+        <p class="hero-intro">
+          SG 把 A 股收盘后的行情补齐、质量检查、量化筛选、新闻阅读、每日总结与追问，
+          收敛成一条可见、可降级、可复盘的研究流程。
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="#product">阅读案例</a>
+          <a class="button quiet" href="https://github.com/ross912/SG/blob/main/docs/portfolio/PRD.md">查看 PRD</a>
+        </div>
+      </div>
+
+      <div class="evidence-rail" aria-label="从原始输入到可信输出的产品证据链">
+        <div class="rail-label">
+          <span>DATA CONFIDENCE RAIL</span>
+          <strong>带警告完成</strong>
+        </div>
+        <ol>
+          <li class="complete">
+            <span class="rail-time">15:35</span>
+            <div><strong>行情就绪检查</strong><small>交易日 · 数据日期 · 停牌状态</small></div>
+          </li>
+          <li class="complete">
+            <span class="rail-time">15:42</span>
+            <div><strong>指数与市场宽度</strong><small>4 指数 · 全市场涨跌家数</small></div>
+          </li>
+          <li class="warning">
+            <span class="rail-time">15:51</span>
+            <div><strong>6 只股票数据滞后</strong><small>已列明并排除，不终止整批</small></div>
+          </li>
+          <li class="complete">
+            <span class="rail-time">16:06</span>
+            <div><strong>四份榜单生成</strong><small>趋势 / 均值回归 · 主板 / 全市场</small></div>
+          </li>
+          <li class="active">
+            <span class="rail-time">16:07</span>
+            <div><strong>AI 总结生成中</strong><small>行情 + 榜单 + 新闻 · 78%</small></div>
+          </li>
+        </ol>
+        <p class="rail-note">核心结果先落盘，外部 AI 服务失败也不丢榜单。</p>
+      </div>
+    </section>
+
+    <section class="thesis" aria-label="项目定位">
+      <p>不是一个“让模型预测股票”的 Demo。</p>
+      <p>它是一套让模型只在<strong>可验证事实之后</strong>工作的产品协议。</p>
+    </section>
+
+    <section class="case-section" id="product">
+      <header class="section-heading">
+        <p class="eyebrow">01 / PRODUCT</p>
+        <h2>用户要的不是更多信号，<br>而是一次完整的判断过程。</h2>
+        <p>个人研究者每天在行情软件、新闻站点、表格和聊天工具之间切换。真正昂贵的是确认：数据是不是今天的、流程有没有卡住、AI 的结论从哪来。</p>
+      </header>
+
+      <div class="problem-grid">
+        <article>
+          <span class="problem-no">P1</span>
+          <h3>数据日期混用</h3>
+          <p>部分股票和指数已更新，另一部分仍停留在上一交易日，结果却看起来“正常完成”。</p>
+        </article>
+        <article>
+          <span class="problem-no">P2</span>
+          <h3>长任务不可见</h3>
+          <p>全市场更新耗时较长，只有后台日志，用户无法区分运行中、卡死与部分失败。</p>
+        </article>
+        <article>
+          <span class="problem-no">P3</span>
+          <h3>AI 缺少最新依据</h3>
+          <p>纯本地问答无法解释最新事件；盲目联网又带来成本、延迟和提示注入风险。</p>
+        </article>
+      </div>
+
+      <div class="decision-table" role="region" aria-label="产品问题与设计决策" tabindex="0">
+        <div class="decision-row table-head">
+          <span>问题</span><span>产品决策</span><span>用户可见结果</span>
+        </div>
+        <div class="decision-row">
+          <strong>过期行情</strong>
+          <span>15:35 门禁；交易股票逐只检查；异常股票排除</span>
+          <span class="result">带警告完成 ≠ 静默成功</span>
+        </div>
+        <div class="decision-row">
+          <strong>单点失败</strong>
+          <span>榜单为核心，新闻 / 搜索 / AI 均可独立降级</span>
+          <span class="result">外部服务失败仍保留核心结果</span>
+        </div>
+        <div class="decision-row">
+          <strong>等待焦虑</strong>
+          <span>阶段、百分比、当前动作与警告统一成任务协议</span>
+          <span class="result">前端持续解释“现在发生什么”</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="case-section product-shot">
+      <div class="shot-copy">
+        <p class="eyebrow">CORE EXPERIENCE</p>
+        <h2>一个屏幕里，先看风险环境，再看候选结果。</h2>
+        <ul class="plain-list">
+          <li>上证定义主牛熊状态，四指数分别标注细分状态；</li>
+          <li>趋势与均值回归分别输出主板和全市场榜单；</li>
+          <li>全市场涨跌家数使用完整行情截面，不偷换成筛选后口径；</li>
+          <li>每次运行显示日期、覆盖范围与异常。</li>
+        </ul>
+      </div>
+      <figure class="browser-frame">
+        <div class="browser-bar"><i></i><i></i><i></i><span>SG / 榜单与进度</span></div>
+        <img src="assets/dashboard.jpg" alt="SG 榜单、市场状态与流程进度页面截图">
+        <figcaption>本地脱敏环境截图。榜单仅用于研究展示。</figcaption>
+      </figure>
+    </section>
+
+    <section class="case-section ai-section" id="ai">
+      <header class="section-heading">
+        <p class="eyebrow">02 / AI SYSTEM</p>
+        <h2>AI 的价值不是“知道一切”，<br>而是知道自己正在依据什么。</h2>
+      </header>
+
+      <div class="ai-map" aria-label="AI 问答决策流程">
+        <div class="query-card">
+          <span>用户问题</span>
+          <p>“今天市场为什么普涨？结合最新政策和平台数据回答。”</p>
+        </div>
+        <div class="connector"><span>时效性识别</span></div>
+        <div class="source-stack">
+          <article><b>LOCAL</b><span>行情 · 榜单 · 日报 · 新闻</span></article>
+          <article><b>WEB</b><span>Tavily → RSS 兜底</span></article>
+          <article><b>GUARD</b><span>日期 · 来源 · 提示注入防护</span></article>
+        </div>
+        <div class="connector"><span>上下文装配</span></div>
+        <div class="answer-card">
+          <div class="answer-status"><span></span>DeepSeek 流式回答</div>
+          <p>先给结论，再区分平台数据与外部资讯，并在答案后展示实际使用的来源。</p>
+        </div>
+      </div>
+
+      <div class="principles">
+        <article>
+          <strong>事实归数据层</strong>
+          <p>行情、日期与新闻来源不交给模型猜。</p>
+        </article>
+        <article>
+          <strong>解释归模型层</strong>
+          <p>模型负责归纳、关联、回答与明确不确定性。</p>
+        </article>
+        <article>
+          <strong>失败归产品层</strong>
+          <p>搜索、模型和数据异常都变成用户看得懂的状态。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="case-section product-shot reverse">
+      <div class="shot-copy">
+        <p class="eyebrow">CONVERSATIONAL RESEARCH</p>
+        <h2>默认智能联网，但不把联网伪装成实时行情。</h2>
+        <p>用户可以选择智能触发、始终联网或仅使用本地数据。Tavily 结果不足时补 RSS；全部失败则继续使用本地上下文，并明确标注降级。</p>
+      </div>
+      <figure class="browser-frame">
+        <div class="browser-bar"><i></i><i></i><i></i><span>SG / 数据问答</span></div>
+        <img src="assets/chat.jpg" alt="SG 数据问答、联网模式与来源页面截图">
+        <figcaption>正文通过 SSE 流式返回，来源与回答分开展示。</figcaption>
+      </figure>
+    </section>
+
+    <section class="case-section evidence-section" id="evidence">
+      <header class="section-heading">
+        <p class="eyebrow">03 / EVIDENCE</p>
+        <h2>最重要的一次产品决策：<br>拒绝上线“看起来更先进”的方案。</h2>
+        <p>候选趋势因子能够增加榜单变化，但训练和验证结果未过门禁。项目没有为了作品展示掩盖失败，而是保留实验、披露偏差并停止替换。</p>
+      </header>
+
+      <div class="experiment">
+        <div class="experiment-meta">
+          <span>EXPERIMENT / TREND REBUILD</span>
+          <strong>REJECTED</strong>
+        </div>
+        <div class="experiment-grid">
+          <article>
+            <span>训练集</span>
+            <b>2022–2024</b>
+            <p>候选因子多项 Rank IC 为负</p>
+          </article>
+          <article>
+            <span>验证集</span>
+            <b>2025</b>
+            <p>超额 Sharpe 未通过门槛</p>
+          </article>
+          <article>
+            <span>最终测试</span>
+            <b>2026 YTD</b>
+            <p>不参与选权，只作最终检查</p>
+          </article>
+          <article class="verdict">
+            <span>上线决策</span>
+            <b>NO SHIP</b>
+            <p>保留研究代码，不替换生产权重</p>
+          </article>
+        </div>
+        <a href="https://github.com/ross912/SG/blob/main/evidence/candidate_factor_research.json">查看原始汇总证据 →</a>
+      </div>
+    </section>
+
+    <section class="case-section reflection-section" id="reflection">
+      <header class="section-heading">
+        <p class="eyebrow">04 / REFLECTION</p>
+        <h2>这是一个完成的案例，<br>不是一个完成的产品。</h2>
+      </header>
+      <div class="reflection-grid">
+        <div>
+          <h3>已经证明</h3>
+          <ul class="plain-list">
+            <li>能把模型放进一条可追踪的数据工作流；</li>
+            <li>能把异常和降级设计为正式产品状态；</li>
+            <li>能用生产门禁约束“为了展示而上线”；</li>
+            <li>能把安全、成本和等待体验一起纳入需求。</li>
+          </ul>
+        </div>
+        <div>
+          <h3>尚未证明</h3>
+          <ul class="plain-list">
+            <li>没有真实线上用户和留存数据；</li>
+            <li>目标用户画像仍主要来自自身场景；</li>
+            <li>历史数据存在幸存者偏差；</li>
+            <li>AI 回答尚缺固定质量评测集。</li>
+          </ul>
+        </div>
+        <div>
+          <h3>下一步</h3>
+          <ul class="plain-list">
+            <li>访谈验证榜单、日报和问答的真实优先级；</li>
+            <li>建立事实一致性与引用覆盖评测；</li>
+            <li>补历史时点数据和正式公告源；</li>
+            <li>将状态与缓存迁移到 Redis。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="closing">
+      <p class="eyebrow">DELIVERABLES</p>
+      <h2>从需求到失败复盘，<br>完整公开。</h2>
+      <div class="deliverable-links">
+        <a href="https://github.com/ross912/SG/blob/main/docs/portfolio/PRD.md"><span>01</span>精简 PRD</a>
+        <a href="https://github.com/ross912/SG/blob/main/docs/portfolio/ARCHITECTURE.md"><span>02</span>产品架构与流程</a>
+        <a href="https://github.com/ross912/SG/blob/main/docs/portfolio/DEMO.md"><span>03</span>演示脚本</a>
+        <a href="https://github.com/ross912/SG/blob/main/docs/portfolio/RESUME.md"><span>04</span>简历项目经历</a>
+        <a href="https://github.com/ross912/SG/blob/main/docs/portfolio/RETROSPECTIVE.md"><span>05</span>失败实验与复盘</a>
+        <a href="https://github.com/ross912/SG"><span>06</span>脱敏公开源码</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>SG · AI Product Case · 2026</p>
+    <p>研究与作品展示，不构成投资建议。</p>
+  </footer>
+</body>
+</html>

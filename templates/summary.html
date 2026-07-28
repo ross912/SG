@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}每日总结 · SG Quant{% endblock %}
+{% block content %}
+<section class="hero compact">
+  <div>
+    <div class="eyebrow">DEEPSEEK DAILY REVIEW · 收盘复盘</div>
+    <h1>每日市场研究简报</h1>
+    <p>全量流程完成后自动生成，综合当日全市场快照、四份榜单与财经新闻。</p>
+  </div>
+  <button id="generateButton" class="primary" type="button">重新生成</button>
+</section>
+<section class="card progress-card">
+  <div class="progress-head">
+    <div class="progress-copy">
+      <span class="utility-label">GENERATION STATUS</span>
+      <strong id="summaryProgressMessage">读取生成状态…</strong>
+      <div class="muted" id="summaryProgressDetail"></div>
+    </div>
+    <span class="status-pill" id="summaryProgressState">—</span>
+  </div>
+  <div class="progress-track"><div id="summaryProgressFill" class="progress-fill"></div></div>
+</section>
+<div class="summary-layout">
+  <aside class="history-card"><span class="utility-label">ARCHIVE</span><h3>历史简报</h3><div id="historyList"></div></aside>
+  <article class="card summary-card">
+    <div class="summary-header">
+      <span class="utility-label">SG QUANT RESEARCH NOTE</span>
+      <div id="summaryMeta" class="card-meta">读取中…</div>
+    </div>
+    <div id="summaryContent" class="summary-content"></div>
+  </article>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  let currentDate = '';
+  const stateLabels = {
+    idle:'未运行',
+    running:'运行中',
+    completed:'已完成',
+    completed_with_warnings:'已完成（有警告）',
+    failed:'失败'
+  };
+
+  function renderProgress(data) {
+    const pipeline = data.pipeline_progress || {};
+    const summary = data.summary_progress || {};
+    const active = pipeline.state === 'running' ? pipeline : summary;
+    const percent = Number(active.percent || 0);
+    const state = active.state || 'idle';
+    document.getElementById('summaryProgressMessage').textContent = active.message || '尚未生成每日总结';
+    document.getElementById('summaryProgressDetail').textContent = pipeline.state === 'running'
+      ? `全市场流程 · ${percent.toFixed(1)}%`
+      : `每日总结 · ${percent.toFixed(1)}%`;
+    document.getElementById('summaryProgressFill').style.width = `${Math.max(0, Math.min(percent, 100))}%`;
+    const pill = document.getElementById('summaryProgressState');
+    pill.textContent = stateLabels[state] || state;
+    pill.dataset.state = state;
+  }
+
+  async function loadSummary(date = '') {
+    const response = await SGQ.api(`/api/summary${date ? `?date=${encodeURIComponent(date)}` : ''}`);
+    const data = await response.json();
+    const item = data.summary || {};
+    currentDate = item.date || '';
+    document.getElementById('generateButton').disabled = Boolean(data.generating) || data.pipeline_progress?.state === 'running';
+    renderProgress(data);
+    document.getElementById('summaryMeta').textContent = item.date
+      ? `总结日期 ${item.date} · 行情截面 ${item.snapshot_date || '未知'} · ${item.model || ''} · ${SGQ.localTime(item.generated_at)}`
+      : '尚无每日总结。';
+    const content = document.getElementById('summaryContent');
+    if (item.status === 'completed') {
+      content.innerHTML = SGQ.renderMarkdown(item.summary) || '<p class="muted">暂无总结内容。</p>';
+    } else {
+      content.textContent = item.error || '等待全量流程生成总结。';
+    }
+    content.classList.toggle('error-text', item.status === 'failed');
+    document.getElementById('historyList').innerHTML = (data.history || []).map(row =>
+      `<button class="history-row ${row.date === currentDate ? 'active' : ''}" onclick="loadSummary('${row.date}')"><strong>${row.date}</strong><span>${row.status === 'completed' ? '已生成' : '失败'}</span></button>`
+    ).join('') || '<div class="empty small-empty">暂无历史</div>';
+    return Boolean(data.generating);
+  }
+
+  async function generateSummary() {
+    document.getElementById('generateButton').disabled = true;
+    const response = await SGQ.api('/api/summary/generate', {method:'POST'});
+    const data = await response.json();
+    if (!response.ok && response.status !== 409) alert(data.error || data.message || '生成失败');
+    const timer = setInterval(async () => { if (!(await loadSummary())) clearInterval(timer); }, 2500);
+  }
+  document.getElementById('generateButton').addEventListener('click', generateSummary);
+  loadSummary(); setInterval(() => loadSummary(currentDate), 3000);
+</script>
+{% endblock %}

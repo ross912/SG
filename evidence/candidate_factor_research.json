@@ -1,0 +1,75 @@
+{
+  "generated_at": "2026-07-23 18:01:01",
+  "method": "monthly_walk_forward_rank_standardized",
+  "factors": [
+    "momentum_12_2",
+    "high_52w",
+    "multi_horizon"
+  ],
+  "weights": {
+    "momentum_12_2": 0.101488,
+    "high_52w": 0.642155,
+    "multi_horizon": 0.256357
+  },
+  "metadata": {
+    "industry_coverage": 0.0,
+    "industry_residual_status": "disabled",
+    "stocks": 5379,
+    "periods": 54,
+    "holding_days": 20,
+    "top_n": 20
+  },
+  "metrics": {
+    "train": {
+      "absolute": {
+        "annual_return": -0.305807,
+        "sharpe": -1.2587,
+        "max_drawdown": -0.702202
+      },
+      "excess": {
+        "annual_return": -0.364676,
+        "sharpe": -1.9979,
+        "max_drawdown": -0.711374
+      },
+      "average_turnover": 0.875,
+      "samples": 36
+    },
+    "validation": {
+      "absolute": {
+        "annual_return": 0.117963,
+        "sharpe": 0.4808,
+        "max_drawdown": -0.211602
+      },
+      "excess": {
+        "annual_return": -0.269479,
+        "sharpe": -1.2259,
+        "max_drawdown": -0.248251
+      },
+      "average_turnover": 0.945833,
+      "samples": 12
+    },
+    "test": {
+      "absolute": {
+        "annual_return": 0.057339,
+        "sharpe": 0.4377,
+        "max_drawdown": -0.340121
+      },
+      "excess": {
+        "annual_return": 0.535315,
+        "sharpe": 0.8863,
+        "max_drawdown": -0.225719
+      },
+      "average_turnover": 0.95,
+      "samples": 6
+    }
+  },
+  "production_gate": {
+    "passed": false,
+    "reasons": [
+      "train 绝对年化收益不为正",
+      "train 超额 Sharpe 不为正",
+      "train 最大回撤超过 35%",
+      "validation 超额 Sharpe 不为正"
+    ]
+  }
+}

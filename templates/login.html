@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>登录 · SG Quant</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body class="login-body">
+  <main class="login-shell">
+    <section class="login-market-panel">
+      <div class="login-brand"><span>SG</span><b>QUANT</b></div>
+      <div class="login-thesis">
+        <span class="utility-label">PRIVATE A-SHARE RESEARCH TERMINAL</span>
+        <h1>把市场噪声<br>压缩成每日判断。</h1>
+        <p>行情、五因子榜单、新闻、复盘与数据问答，在同一张研究台上闭环。</p>
+      </div>
+      <div class="login-tape" aria-hidden="true">
+        <span>行情截面</span><i></i><span>因子评分</span><i></i><span>研究结论</span>
+      </div>
+    </section>
+    <section class="login-card">
+      <div class="eyebrow">SECURE ACCESS · 安全访问</div>
+      <h2>进入研究台</h2>
+      <p class="muted">此平台包含私有行情数据和 DeepSeek 调用额度。</p>
+      {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+      <form method="post" class="login-form">
+        <label for="password">平台密码</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" autofocus required placeholder="输入访问密码">
+        <button class="primary full" type="submit">进入 SG Quant</button>
+      </form>
+      <small class="login-note">仅限授权用户访问</small>
+    </section>
+  </main>
+</body>
+</html>

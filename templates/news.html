@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}财经新闻 · SG Quant{% endblock %}
+{% block content %}
+<section class="hero compact">
+  <div>
+    <div class="eyebrow">MARKET WIRE · 财经快讯</div>
+    <h1>今日市场新闻流</h1>
+    <p>东方财富、新浪财经与财联社的公开信息源；只展示来源原标题，不作二次概括。</p>
+  </div>
+  <button id="refreshButton" class="primary" type="button">刷新新闻源</button>
+</section>
+<section class="news-shell">
+  <div class="news-rail">
+    <span class="utility-label">LIVE WIRE</span>
+    <strong id="newsCount">—</strong>
+    <span>条公开资讯</span>
+    <div id="newsMeta" class="section-note">读取中…</div>
+  </div>
+  <div id="newsList" class="news-list"></div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  async function loadNews() {
+    const response = await SGQ.api('/api/news');
+    const data = await response.json();
+    const items = data.items || [];
+    document.getElementById('refreshButton').disabled = Boolean(data.refreshing);
+    document.getElementById('newsCount').textContent = items.length;
+    document.getElementById('newsMeta').textContent = data.generated_at
+      ? `更新于 ${SGQ.localTime(data.generated_at)}\n${data.sources?.join(' / ') || ''}${data.refreshing ? '\n正在刷新…' : ''}`
+      : '尚无新闻数据，请执行全市场流程或手动刷新。';
+    document.getElementById('newsList').innerHTML = items.length ? items.map((item, index) => `
+      <article class="news-item">
+        <span class="news-number">${String(index + 1).padStart(2, '0')}</span>
+        <div class="news-body">
+        <div class="news-meta"><span class="source-mark">${SGQ.escape(item.source)}</span><time>${SGQ.escape(SGQ.localTime(item.published_at))}</time></div>
+        <h2><a href="${SGQ.escape(item.url)}" target="_blank" rel="noopener noreferrer">${SGQ.escape(item.original_title || item.title)}</a></h2>
+        <p>${SGQ.escape(item.content)}</p>
+        <div class="news-foot"><span>来源原标题</span><a href="${SGQ.escape(item.url)}" target="_blank" rel="noopener noreferrer">打开原文 <span aria-hidden="true">↗</span></a></div>
+        </div>
+      </article>`).join('') : '<div class="card empty">暂无新闻。</div>';
+    return Boolean(data.refreshing);
+  }
+
+  async function refreshNews() {
+    const button = document.getElementById('refreshButton');
+    button.disabled = true;
+    const response = await SGQ.api('/api/news/refresh', {method:'POST'});
+    const data = await response.json();
+    if (!response.ok && response.status !== 409) alert(data.error || data.message || '刷新失败');
+    const timer = setInterval(async () => { if (!(await loadNews())) clearInterval(timer); }, 2500);
+  }
+  document.getElementById('refreshButton').addEventListener('click', refreshNews);
+  loadNews();
+</script>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}榜单与进度 · SG Quant{% endblock %}
+{% block content %}
+<section class="hero compact">
+  <div>
+    <div class="eyebrow">DAILY CROSS-SECTION · 每日横截面</div>
+    <h1>五因子选股榜单</h1>
+    <p>趋势、突破、RSRS、动量与量价共同评分，排除 ST 及流动性极弱标的。</p>
+  </div>
+  <button id="runButton" class="primary run-action" type="button">
+    <span>执行全市场</span><small>更新行情、四榜单、新闻与总结</small>
+  </button>
+</section>
+
+<section class="model-status model-status-warning" aria-label="趋势模型状态">
+  <div>
+    <span class="utility-label">TREND MODEL STATUS</span>
+    <strong>{{ trend_model_status.active_label }}</strong>
+  </div>
+  <p>{{ trend_model_status.message }}</p>
+  <span class="status-pill" data-state="failed">{{ trend_model_status.replacement_label }}</span>
+</section>
+
+<section class="card progress-card">
+  <div class="progress-head">
+    <div class="progress-copy">
+      <span class="utility-label">FULL MARKET PIPELINE</span>
+      <strong id="progressMessage">读取运行状态…</strong>
+      <div class="muted" id="progressDetail"></div>
+    </div>
+    <span class="status-pill" id="progressState">—</span>
+  </div>
+  <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+  <div class="progress-warnings" id="progressWarnings" hidden></div>
+  <details class="log-panel">
+    <summary>运行日志 <span>展开最近 40 行</span></summary>
+    <pre id="logTail">暂无日志</pre>
+  </details>
+</section>
+
+<section class="card table-card">
+  <div class="table-toolbar">
+    <div class="tabs" id="tabs"></div>
+    <div class="card-meta" id="meta">读取中…</div>
+  </div>
+  <div class="table-wrap" id="content"></div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  const lists = {{ lists|tojson }};
+  let current = 'main10';
+  const stateLabels = {
+    idle:'未运行',
+    running:'运行中',
+    completed:'已完成',
+    completed_with_warnings:'已完成（有警告）',
+    failed:'失败'
+  };
+
+  function renderTabs() {
+    document.getElementById('tabs').innerHTML = Object.entries(lists).map(([id, label]) =>
+      `<button class="tab ${id === current ? 'active' : ''}" onclick="loadPool('${id}')">${SGQ.escape(label)}</button>`
+    ).join('');
+  }
+
+  async function loadPool(id) {
+    current = id; renderTabs();
+    const response = await SGQ.api(`/api/stock_pool/${id}`);
+    const data = await response.json();
+    document.getElementById('meta').textContent = `${data.label} · 数据日期 ${data.date || '暂无'} · ${data.rows.length} 只`;
+    if (!data.rows.length) {
+      document.getElementById('content').innerHTML = '<div class="empty">还没有该榜单，请先执行全市场流程。</div>';
+      return;
+    }
+    const columns = ['排名','代码','名称','所属概念','综合得分','均线信号','突破信号','RSRS信号','动量信号','风险警告','最新价','涨跌幅','换手率'];
+    document.getElementById('content').innerHTML = `<table><thead><tr>${columns.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${data.rows.map(row =>
+      `<tr>${columns.map(c => {
+        const raw = row[c];
+        if (c === '排名') return `<td><span class="rank">${SGQ.escape(raw)}</span></td>`;
+        if (c === '代码') return `<td class="code">${SGQ.escape(raw)}</td>`;
+        if (c === '综合得分') return `<td class="score-value">${SGQ.escape(raw)}</td>`;
+        if (['均线信号','突破信号','RSRS信号','动量信号'].includes(c)) {
+          const signal = String(raw || '');
+          const tone = signal.includes('强') ? 'positive' : signal.includes('弱') ? 'negative' : 'neutral';
+          return `<td><span class="signal ${tone}">${SGQ.escape(signal || '—')}</span></td>`;
+        }
+        if (c === '风险警告') return `<td>${raw ? `<span class="risk">${SGQ.escape(raw)}</span>` : '<span class="quiet">—</span>'}</td>`;
+        if (c === '涨跌幅') {
+          const value = parseFloat(String(raw).replace('%','')) || 0;
+          return `<td class="${value > 0 ? 'value-up' : value < 0 ? 'value-down' : ''}">${SGQ.escape(raw)}</td>`;
+        }
+        return `<td>${SGQ.escape(raw)}</td>`;
+      }).join('')}</tr>`
+    ).join('')}</tbody></table>`;
+  }
+
+  async function refreshStatus() {
+    try {
+      const response = await SGQ.api('/api/run/status');
+      const data = await response.json();
+      const progress = data.progress || {};
+      const percent = Number(progress.percent || 0);
+      document.getElementById('progressMessage').textContent = progress.message || '尚未运行';
+      document.getElementById('progressDetail').textContent = progress.total
+        ? `${progress.current || 0}/${progress.total} · 指标有效 ${progress.valid || 0} · ${percent.toFixed(1)}%`
+        : `${percent.toFixed(1)}%`;
+      document.getElementById('progressFill').style.width = `${Math.max(0, Math.min(percent, 100))}%`;
+      const state = progress.state || 'idle';
+      const pill = document.getElementById('progressState');
+      pill.textContent = stateLabels[state] || state;
+      pill.dataset.state = state;
+      const warnings = Array.isArray(progress.warnings) ? progress.warnings : [];
+      const warningBox = document.getElementById('progressWarnings');
+      warningBox.hidden = warnings.length === 0;
+      warningBox.innerHTML = warnings.map(item =>
+        `<div><strong>数据警告</strong><span>${SGQ.escape(item)}</span></div>`
+      ).join('');
+      document.getElementById('runButton').disabled = state === 'running';
+      document.getElementById('logTail').textContent = (data.log_tail || []).join('').trim() || '暂无日志';
+      document.title = state === 'running' ? `运行中 ${percent.toFixed(0)}% · SG Quant` : '榜单与进度 · SG Quant';
+      if (['completed', 'completed_with_warnings'].includes(state) && window.lastState === 'running') {
+        loadPool(current);
+      }
+      window.lastState = state;
+    } catch (error) {
+      document.getElementById('progressMessage').textContent = error.message;
+    }
+  }
+
+  async function runFull() {
+    const button = document.getElementById('runButton');
+    button.disabled = true;
+    const response = await SGQ.api('/api/run', {method:'POST'});
+    const data = await response.json();
+    if (!response.ok) alert(data.error || data.message || '启动失败');
+    await refreshStatus();
+  }
+
+  document.getElementById('runButton').addEventListener('click', runFull);
+  renderTabs(); loadPool(current); refreshStatus(); setInterval(refreshStatus, 2000);
+</script>
+{% endblock %}

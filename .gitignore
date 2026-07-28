@@ -1,0 +1,17 @@
+.DS_Store
+.env
+.runtime/
+.ruff_cache/
+.python/
+.venv/
+__pycache__/
+*.py[cod]
+data_files/kline/
+data_files/concept_tags.json
+data_files/intelligence/
+output_files/*.csv
+output_files/*.parquet
+output_files/*.json
+output_files/*.db*
+output_files/*.log
+backtest_results/
