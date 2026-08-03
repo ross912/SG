@@ -1,4 +1,4 @@
-"""SG Quant 日度入口：一次全市场扫描，生成趋势/均值 × 主板/全市场四榜单。"""
+"""SG Quant 日度入口：生成基本面价值榜与四份技术研究榜单。"""
 import argparse
 import json
 import os
@@ -12,6 +12,7 @@ import pandas as pd
 
 from config import (
     ALL_MARKET_POOL_SIZE,
+    FUNDAMENTAL_POOL_SIZE,
     KLINE_DIR,
     MAIN_BOARD_POOL_SIZE,
     OUTPUT_DIR,
@@ -26,6 +27,11 @@ from data.fetcher import (
     get_stock_missing_daily,
     get_trading_codes,
 )
+from data.fundamentals import (
+    refresh_fundamental_cache,
+    refresh_valuation_cache,
+)
+from data.forward_outlook import refresh_forward_cache
 from data.index_filter import (
     assess_market_overview,
     default_market_regime,
@@ -54,6 +60,7 @@ from screening.factor_eval import (
     cross_sectional_normalize,
     cross_sectional_standardize_factors,
 )
+from screening.fundamental import build_fundamental_ranking
 from screening.ranking import rank, to_dataframe
 from screening.scanner import prepare_results_for_strategy, scan_all, set_market_regime
 from services.market_ai import generate_daily_market_summary, save_market_snapshot
@@ -63,9 +70,11 @@ from services.progress import add_warning as add_progress_warning
 from services.progress import fail as fail_progress
 from services.progress import start as start_progress
 from services.progress import update as update_progress
+from services.storage import write_json
 
 _NAMES_CACHE = OUTPUT_DIR / "stock_names_cache.json"
 _INDUSTRY_CACHE = OUTPUT_DIR / "stock_industry_cache.json"
+_STOCK_META_CACHE = OUTPUT_DIR / "stock_metadata_cache.csv"
 
 
 def load_universe(
@@ -97,6 +106,7 @@ def load_universe(
             industries.update(fresh_industries)
             if fresh_industries:
                 _save_industry_cache(industries)
+        _save_stock_metadata(stocks)
         return codes, names, industries
     except Exception as error:
         print(f"股票列表在线获取失败，退回本地缓存: {error}")
@@ -202,6 +212,80 @@ def _save_industry_cache(industries: dict[str, str]) -> None:
         json.dump(industries, handle, ensure_ascii=False, indent=2, sort_keys=True)
 
 
+def _load_stock_metadata() -> pd.DataFrame:
+    if not _STOCK_META_CACHE.exists():
+        return pd.DataFrame(columns=["code", "name", "industry", "list_date", "market"])
+    try:
+        frame = pd.read_csv(_STOCK_META_CACHE, dtype={"code": str, "list_date": str})
+    except Exception:
+        return pd.DataFrame(columns=["code", "name", "industry", "list_date", "market"])
+    for column in ("name", "industry", "list_date", "market"):
+        frame[column] = frame[column].astype(object)
+    updated = False
+    industry_map = _load_industry_cache()
+    if industry_map:
+        missing_industry = (
+            frame["industry"].fillna("").astype(str).str.strip().isin({"", "nan"})
+        )
+        mapped = frame.loc[missing_industry, "code"].astype(str).str.zfill(6).map(
+            industry_map,
+        )
+        available = mapped.fillna("").astype(str).str.strip().ne("")
+        if available.any():
+            frame.loc[mapped.index[available], "industry"] = mapped.loc[available]
+            updated = True
+    missing = frame["list_date"].fillna("").astype(str).str.strip().isin({"", "nan"})
+    for index, code in frame.loc[missing, "code"].items():
+        path = KLINE_DIR / f"{str(code).zfill(6)}.parquet"
+        if not path.exists():
+            continue
+        try:
+            dates = pd.read_parquet(path, columns=["date"])["date"]
+            first_date = pd.to_datetime(dates, errors="coerce").min()
+        except Exception:
+            continue
+        if pd.notna(first_date):
+            frame.at[index, "list_date"] = first_date.strftime("%Y%m%d")
+            updated = True
+    if updated:
+        frame.to_csv(_STOCK_META_CACHE, index=False, encoding="utf-8-sig")
+    return frame
+
+
+def _save_stock_metadata(stocks: pd.DataFrame) -> None:
+    frame = stocks.copy()
+    if "symbol" in frame.columns and "code" not in frame.columns:
+        frame = frame.rename(columns={"symbol": "code"})
+    for column in ("code", "name", "industry", "list_date", "market"):
+        if column not in frame:
+            frame[column] = ""
+        frame[column] = frame[column].astype(object)
+    frame["code"] = frame["code"].astype(str).str.zfill(6)
+    if _STOCK_META_CACHE.exists():
+        try:
+            existing = pd.read_csv(
+                _STOCK_META_CACHE, dtype={"code": str, "list_date": str},
+            ).drop_duplicates("code").set_index("code")
+        except Exception:
+            existing = pd.DataFrame()
+        if not existing.empty:
+            for column in ("industry", "list_date", "market"):
+                if column not in existing:
+                    continue
+                old_values = frame["code"].map(existing[column])
+                missing = (
+                    frame[column].fillna("").astype(str).str.strip().isin({"", "nan"})
+                )
+                frame.loc[missing, column] = old_values.loc[missing]
+    industry_map = _load_industry_cache()
+    if industry_map:
+        missing = frame["industry"].fillna("").astype(str).str.strip().isin({"", "nan"})
+        frame.loc[missing, "industry"] = frame.loc[missing, "code"].map(industry_map)
+    frame[["code", "name", "industry", "list_date", "market"]].drop_duplicates(
+        "code",
+    ).to_csv(_STOCK_META_CACHE, index=False, encoding="utf-8-sig")
+
+
 def _load_saved_weights() -> None:
     saved = load_optimized_weights()
     if not saved:
@@ -228,10 +312,15 @@ def _load_saved_weights() -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="A股五因子选股系统")
+    parser = argparse.ArgumentParser(description="A股基本面价值与技术研究系统")
     parser.add_argument("--full", action="store_true", help="在线获取全市场股票列表并扫描")
     parser.add_argument("--offline", action="store_true", help="只使用本地日线缓存")
     parser.add_argument("--clean", action="store_true", help="清空日线缓存后重新执行全市场更新")
+    parser.add_argument(
+        "--refresh-fundamentals",
+        action="store_true",
+        help="忽略低频缓存，强制刷新公开财务报表与质押数据",
+    )
     return parser.parse_args()
 
 
@@ -307,7 +396,7 @@ def validate_market_data_freshness(
 def _run_pipeline(args: argparse.Namespace, run_id: str) -> int:
     started_date = datetime.now().strftime("%Y-%m-%d")
     started = time.time()
-    print(f"\n{'=' * 60}\n  SG Quant 五因子选股  |  {started_date}\n{'=' * 60}")
+    print(f"\n{'=' * 60}\n  SG Quant 基本面价值与量化研究  |  {started_date}\n{'=' * 60}")
     update_progress(
         run_id, stage="initializing", percent=2,
         message="正在初始化数据库与历史权重",
@@ -405,6 +494,65 @@ def _run_pipeline(args: argparse.Namespace, run_id: str) -> int:
         message=f"市场状态：{regime.regime}；建议仓位 {position['ratio_pct']:.1f}%",
     )
 
+    fundamental_frame = pd.DataFrame()
+    fundamental_diagnostics: dict = {}
+    update_progress(
+        run_id, stage="fundamentals", percent=9,
+        message="正在更新财报、前瞻证据与当日估值；高风险和前瞻数据不足股票将剔除",
+        total=len(codes),
+    )
+    try:
+        fundamentals, fundamental_meta = refresh_fundamental_cache(
+            universe_count=len(codes),
+            allow_network=not args.offline,
+            force=args.refresh_fundamentals,
+        )
+        valuations, valuation_meta = refresh_valuation_cache(
+            target_date,
+            allow_network=not args.offline,
+        )
+        outlook, forward_meta = refresh_forward_cache(
+            allow_network=not args.offline,
+            force=args.refresh_fundamentals,
+        )
+        fundamentals = fundamentals.loc[
+            fundamentals["code"].astype(str).str.zfill(6).isin(codes)
+        ].copy()
+        valuations = valuations.loc[
+            valuations["code"].astype(str).str.zfill(6).isin(codes)
+        ].copy()
+        if not outlook.empty:
+            outlook = outlook.loc[
+                outlook["code"].astype(str).str.zfill(6).isin(codes)
+            ].copy()
+        fundamental_frame, fundamental_diagnostics = build_fundamental_ranking(
+            fundamentals,
+            valuations,
+            _load_stock_metadata(),
+            outlook,
+            valuation_date=valuation_meta.get("trade_date", target_date),
+            top_n=FUNDAMENTAL_POOL_SIZE,
+        )
+        fundamental_diagnostics["fundamental_source"] = fundamental_meta
+        fundamental_diagnostics["valuation_source"] = valuation_meta
+        fundamental_diagnostics["forward_source"] = forward_meta
+        print(
+            "基本面价值榜候选: "
+            f"输入 {fundamental_diagnostics.get('input_count', 0)}，"
+            f"高风险剔除 {fundamental_diagnostics.get('high_risk_excluded', 0)}，"
+            f"数据不足 {fundamental_diagnostics.get('data_missing_excluded', 0)}，"
+            f"其中前瞻不足 {fundamental_diagnostics.get('forward_data_missing_excluded', 0)}，"
+            f"达到门槛 {fundamental_diagnostics.get('eligible_count', 0)}，"
+            f"入榜 {len(fundamental_frame)}"
+        )
+    except Exception as error:
+        warning = (
+            "基本面价值榜生成失败（原四榜单继续）："
+            f"{type(error).__name__}: {error}"
+        )
+        print(warning)
+        add_progress_warning(run_id, warning)
+
     print("\n更新日线并计算生产五因子与趋势候选因子（每只股票只走一次）...")
     scan_workers = max(1, int(os.getenv("SG_QUANT_SCAN_WORKERS", "6")))
 
@@ -413,7 +561,7 @@ def _run_pipeline(args: argparse.Namespace, run_id: str) -> int:
         update_progress(
             run_id,
             stage="scanning",
-            percent=10 + ratio * 68,
+            percent=12 + ratio * 66,
             message=(
                 f"正在更新日线并计算生产/候选因子："
                 f"{completed}/{total}，有效 {valid}"
@@ -474,20 +622,41 @@ def _run_pipeline(args: argparse.Namespace, run_id: str) -> int:
     )
     update_progress(
         run_id, stage="ranking", percent=82,
-        message="正在构造趋势与均值回归四榜单",
+        message="正在保存基本面价值榜并构造趋势与均值回归四榜单",
         current=len(codes), total=len(codes), valid=len(results),
     )
     pools = build_strategy_pools(results, regime.regime)
-    paths = write_outputs(
+    paths = []
+    if not fundamental_frame.empty:
+        print(
+            "\n[基本面价值 · 全市场 Top 30]\n"
+            + fundamental_frame[
+                ["排名", "代码", "名称", "综合得分", "暴雷风险", "入选理由", "风险提示"]
+            ].to_string(index=False)
+        )
+        paths.append(save_stock_pool(
+            fundamental_frame,
+            snapshot_date,
+            suffix="fundamental30",
+        ))
+        write_json(
+            OUTPUT_DIR / f"fundamental_diagnostics_{snapshot_date}.json",
+            fundamental_diagnostics,
+        )
+        write_json(
+            OUTPUT_DIR / "fundamental_diagnostics_latest.json",
+            fundamental_diagnostics,
+        )
+    paths.extend(write_outputs(
         pools,
         regime.regime,
         snapshot_date,
         signal_date=snapshot_date,
         allow_concept_network=not args.offline,
-    )
+    ))
     update_progress(
         run_id, stage="feedback", percent=90,
-        message="四榜单已生成，正在回填收益与更新动态权重",
+        message="五榜单已生成，正在回填技术榜单收益与更新动态权重",
     )
 
     returns_stats = backfill_forward_returns()
