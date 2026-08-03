@@ -59,13 +59,15 @@ app.config.update(
 )
 
 LISTS = {
+    "fundamental30": "基本面价值 · 全市场 Top 30",
     "main10": "趋势跟踪 · 主板 Top 10",
     "all30": "趋势跟踪 · 全市场 Top 30",
     "mr_main10": "均值回归 · 主板 Top 10",
     "mr_all30": "均值回归 · 全市场 Top 30",
 }
 _FILE_PATTERN = re.compile(
-    r"^stock_pool_(\d{4}-\d{2}-\d{2})_(main10|all30|mr_main10|mr_all30)\.csv$"
+    r"^stock_pool_(\d{4}-\d{2}-\d{2})_"
+    r"(fundamental30|main10|all30|mr_main10|mr_all30)\.csv$"
 )
 _run_process: subprocess.Popen | None = None
 _news_thread: threading.Thread | None = None

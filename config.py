@@ -146,6 +146,7 @@ STRATEGIES = {
 
 MAIN_BOARD_POOL_SIZE = 10
 ALL_MARKET_POOL_SIZE = 30
+FUNDAMENTAL_POOL_SIZE = 30
 
 # === 入榜资格：风险警示与流动性 ===
 # 最近 20 个交易日中，至少 15 日有正成交额，且 20 日平均成交额不低于 1,000 万元。

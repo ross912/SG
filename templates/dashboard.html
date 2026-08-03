@@ -3,12 +3,12 @@
 {% block content %}
 <section class="hero compact">
   <div>
-    <div class="eyebrow">DAILY CROSS-SECTION · 每日横截面</div>
-    <h1>五因子选股榜单</h1>
-    <p>趋势、突破、RSRS、动量与量价共同评分，排除 ST 及流动性极弱标的。</p>
+    <div class="eyebrow">FUNDAMENTAL FIRST · 基本面优先</div>
+    <h1>基本面价值与量化研究榜单</h1>
+    <p>同时评估质量、估值、历史成长、未来空间与暴雷风险，再保留趋势和均值回归作为独立技术研究视角。</p>
   </div>
   <button id="runButton" class="primary run-action" type="button">
-    <span>执行全市场</span><small>更新行情、四榜单、新闻与总结</small>
+    <span>执行全市场</span><small>刷新估值、五榜单、新闻与总结</small>
   </button>
 </section>
 
@@ -49,7 +49,7 @@
 {% block scripts %}
 <script>
   const lists = {{ lists|tojson }};
-  let current = 'main10';
+  let current = 'fundamental30';
   const stateLabels = {
     idle:'未运行',
     running:'运行中',
@@ -73,19 +73,32 @@
       document.getElementById('content').innerHTML = '<div class="empty">还没有该榜单，请先执行全市场流程。</div>';
       return;
     }
-    const columns = ['排名','代码','名称','所属概念','综合得分','均线信号','突破信号','RSRS信号','动量信号','风险警告','最新价','涨跌幅','换手率'];
+    const columns = id === 'fundamental30'
+      ? ['排名','代码','名称','所属行业','模型','综合得分','质量分','估值分','历史成长分','未来空间分','风险控制分','未来数据置信度','暴雷风险','入选理由','未来空间依据','风险提示','行业景气','市占变化','盈利预期','研发证据','订单/产能证据','ROE','营收同比','净利润同比','PE','PE口径','PB','股息率(TTM)','质押比例','最新价','财报期','估值日期']
+      : ['排名','代码','名称','所属概念','综合得分','均线信号','突破信号','RSRS信号','动量信号','风险警告','最新价','涨跌幅','换手率'];
     document.getElementById('content').innerHTML = `<table><thead><tr>${columns.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${data.rows.map(row =>
       `<tr>${columns.map(c => {
         const raw = row[c];
         if (c === '排名') return `<td><span class="rank">${SGQ.escape(raw)}</span></td>`;
         if (c === '代码') return `<td class="code">${SGQ.escape(raw)}</td>`;
-        if (c === '综合得分') return `<td class="score-value">${SGQ.escape(raw)}</td>`;
+        if (['综合得分','质量分','估值分','历史成长分','未来空间分','风险控制分'].includes(c)) return `<td class="score-value">${SGQ.escape(raw)}</td>`;
         if (['均线信号','突破信号','RSRS信号','动量信号'].includes(c)) {
           const signal = String(raw || '');
           const tone = signal.includes('强') ? 'positive' : signal.includes('弱') ? 'negative' : 'neutral';
           return `<td><span class="signal ${tone}">${SGQ.escape(signal || '—')}</span></td>`;
         }
         if (c === '风险警告') return `<td>${raw ? `<span class="risk">${SGQ.escape(raw)}</span>` : '<span class="quiet">—</span>'}</td>`;
+        if (c === '暴雷风险') {
+          const level = String(raw || '');
+          const tone = level === '低' ? 'positive' : level === '中' ? 'neutral' : 'negative';
+          return `<td><span class="signal ${tone}">${SGQ.escape(level || '—')}</span></td>`;
+        }
+        if (c === '未来数据置信度') {
+          const level = String(raw || '');
+          const tone = level === '高' ? 'positive' : level === '中' ? 'neutral' : 'negative';
+          return `<td><span class="signal ${tone}">${SGQ.escape(level || '—')}</span></td>`;
+        }
+        if (c === '风险提示') return `<td><span class="risk">${SGQ.escape(raw || '数据不足')}</span></td>`;
         if (c === '涨跌幅') {
           const value = parseFloat(String(raw).replace('%','')) || 0;
           return `<td class="${value > 0 ? 'value-up' : value < 0 ? 'value-down' : ''}">${SGQ.escape(raw)}</td>`;
