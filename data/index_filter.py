@@ -202,6 +202,28 @@ def _ma_trend(series: pd.Series, lookback: int = 5) -> str:
     return "flat"
 
 
+def _continuous_score(latest_close: float, latest_ma20: float,
+                      latest_ma60: float, ma20: pd.Series) -> float:
+    """0-100 连续市场强度分，替代旧的阶梯分（15/25/48/55/62/85）。
+
+    中性 50 起算，三个分量连续加减：
+    - 价格相对 MA60 每偏离 1%：±2 分（主趋势位置，权重最大）
+    - MA20 相对 MA60 每偏离 1%：±1 分（均线排列形态）
+    - MA20 最近 5 日每变动 1%：±2 分（趋势动能）
+    结果截断到 [0, 100]，保留 1 位小数。
+    """
+    score = 50.0
+    if latest_ma60 > 0:
+        score += (latest_close / latest_ma60 - 1) * 100 * 2.0
+        score += (latest_ma20 / latest_ma60 - 1) * 100 * 1.0
+    window = ma20.dropna()
+    if len(window) >= 6:
+        base = window.iloc[-6]
+        if base > 0:
+            score += (window.iloc[-1] / base - 1) * 100 * 2.0
+    return round(min(max(score, 0.0), 100.0), 1)
+
+
 def _assess_single_index(df: pd.DataFrame, index_name: str) -> dict:
     """对单个指数做牛熊判断，返回 regime/score/details。"""
     close = df["close"]
@@ -218,28 +240,20 @@ def _assess_single_index(df: pd.DataFrame, index_name: str) -> dict:
     ma20_above_ma60 = latest_ma20 > latest_ma60
     ma20_rising = trend == "up"
 
+    score = _continuous_score(latest_close, latest_ma20, latest_ma60, ma20)
+
     if above_ma20 and above_ma60 and ma20_above_ma60 and ma20_rising:
         regime = "bull"
-        score = 85.0
-        deviation = (latest_close / latest_ma20 - 1) * 100
-        if 3 <= deviation <= 8:
-            score += 5
         details = f"{index_name}牛市确认：均线多头排列，MA20上行"
     elif not above_ma60:
         regime = "bear"
-        score = 25.0
-        if not ma20_above_ma60 and trend == "down":
-            score -= 10
         details = f"{index_name}熊市：价格在MA60下方"
     else:
         regime = "sideways"
-        score = 55.0
         if above_ma20 and not ma20_above_ma60:
             details = f"{index_name}震荡偏多"
-            score = 62.0
         elif not above_ma20 and above_ma60:
             details = f"{index_name}震荡偏弱"
-            score = 48.0
         else:
             details = f"{index_name}震荡市：方向不明"
 
@@ -270,6 +284,7 @@ def _display_index_result(key: str, code: str, name: str, result: dict) -> dict[
         "regime": result["regime"],
         "label": _REGIME_LABELS[result["regime"]],
         "score": round(float(result["score"]), 1),
+        "color_hue": _score_to_hue(result["score"]),
         "close": round(float(result["close"]), 2),
         "change_pct": round(float(result["change_pct"]), 2),
         "ma20": round(float(result["ma20"]), 2),
