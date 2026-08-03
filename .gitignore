@@ -9,6 +9,7 @@ __pycache__/
 data_files/kline/
 data_files/concept_tags.json
 data_files/intelligence/
+data_files/fundamentals/
 output_files/*.csv
 output_files/*.parquet
 output_files/*.json
