@@ -44,6 +44,7 @@
     <div class="card-meta" id="meta">读取中…</div>
   </div>
   <div class="table-wrap" id="content"></div>
+  <div class="pool-cards" id="poolCards"></div>
 </section>
 {% endblock %}
 {% block scripts %}
@@ -71,6 +72,7 @@
     document.getElementById('meta').textContent = `${data.label} · 数据日期 ${data.date || '暂无'} · ${data.rows.length} 只`;
     if (!data.rows.length) {
       document.getElementById('content').innerHTML = '<div class="empty">还没有该榜单，请先执行全市场流程。</div>';
+      document.getElementById('poolCards').innerHTML = '';
       return;
     }
     const columns = id === 'fundamental30'
@@ -106,6 +108,78 @@
         return `<td>${SGQ.escape(raw)}</td>`;
       }).join('')}</tr>`
     ).join('')}</tbody></table>`;
+    renderPoolCards(id, data.rows);
+  }
+
+  /* ---- 移动端榜单卡片（≤820px 视口由 CSS 切换显示） ---- */
+  const val = (x) => (x === undefined || x === null || x === '') ? '—' : SGQ.escape(x);
+  const signalTone = (s) => String(s || '').includes('强') ? 'positive'
+    : String(s || '').includes('弱') ? 'negative' : 'neutral';
+  const levelTone = (s, high) => String(s || '') === high ? 'positive'
+    : String(s || '') === '中' ? 'neutral' : 'negative';
+
+  function cardHead(row, scopeKey) {
+    const top = Number.parseInt(row['排名'], 10) <= 3;
+    return `<div class="pc-head">
+      <span class="pc-rank${top ? ' top' : ''}">${val(row['排名'])}</span>
+      <div class="pc-title"><b>${val(row['名称'])}</b><span class="pc-code">${val(row['代码'])}</span></div>
+      <span class="pc-scope">${val(row[scopeKey])}</span>
+    </div>`;
+  }
+
+  function fundamentalCard(row) {
+    const subs = ['质量分','估值分','历史成长分','未来空间分','风险控制分'];
+    const metrics = [
+      ['ROE', row['ROE']], ['营收同比', row['营收同比']], ['净利同比', row['净利润同比']],
+      ['PE', row['PE']], ['PB', row['PB']], ['股息率', row['股息率(TTM)']], ['最新价', row['最新价']]
+    ];
+    const details = [
+      ['入选理由', row['入选理由']], ['未来空间依据', row['未来空间依据']],
+      ['风险提示', row['风险提示']], ['行业景气', row['行业景气']],
+      ['市占变化', row['市占变化']], ['盈利预期', row['盈利预期']],
+      ['研发证据', row['研发证据']], ['订单/产能证据', row['订单/产能证据']]
+    ].filter(([, v]) => v && String(v).trim());
+    return `<article class="pool-card">
+      ${cardHead(row, '所属行业')}
+      <div class="pc-score-row">
+        <span class="pc-score">${val(row['综合得分'])}</span><span class="pc-score-label">综合得分</span>
+        <span class="pc-pills">
+          <span class="signal ${levelTone(row['暴雷风险'], '低')}">暴雷 ${val(row['暴雷风险'])}</span>
+          <span class="signal ${levelTone(row['未来数据置信度'], '高')}">置信 ${val(row['未来数据置信度'])}</span>
+        </span>
+      </div>
+      <div class="pc-grid">${subs.map(k =>
+        `<div><i>${k.replace('分','')}</i><b>${val(row[k])}</b></div>`).join('')}</div>
+      <div class="pc-metrics">${metrics.map(([k, v]) =>
+        `<span><i>${k}</i>${val(v)}</span>`).join('')}</div>
+      ${details.length ? `<details class="pc-more"><summary>入选理由与风险细节</summary>
+        ${details.map(([k, v]) => `<div class="pc-detail-row"><i>${k}</i><p>${SGQ.escape(v)}</p></div>`).join('')}
+      </details>` : ''}
+    </article>`;
+  }
+
+  function technicalCard(row) {
+    const signals = ['均线信号','突破信号','RSRS信号','动量信号'];
+    const change = parseFloat(String(row['涨跌幅'] || '').replace('%','')) || 0;
+    return `<article class="pool-card">
+      ${cardHead(row, '所属概念')}
+      <div class="pc-score-row">
+        <span class="pc-score">${val(row['综合得分'])}</span><span class="pc-score-label">综合得分</span>
+        <span class="pc-pills">
+          <span class="pc-price">${val(row['最新价'])}</span>
+          <span class="${change > 0 ? 'value-up' : change < 0 ? 'value-down' : ''}">${val(row['涨跌幅'])}</span>
+        </span>
+      </div>
+      <div class="pc-signals">${signals.map(k =>
+        `<div><i>${k.replace('信号','')}</i><span class="signal ${signalTone(row[k])}">${val(row[k])}</span></div>`).join('')}</div>
+      <div class="pc-metrics"><span><i>换手率</i>${val(row['换手率'])}</span>
+        ${row['风险警告'] ? `<span class="risk">${SGQ.escape(row['风险警告'])}</span>` : ''}</div>
+    </article>`;
+  }
+
+  function renderPoolCards(id, rows) {
+    document.getElementById('poolCards').innerHTML = rows.map(row =>
+      id === 'fundamental30' ? fundamentalCard(row) : technicalCard(row)).join('');
   }
 
   async function refreshStatus() {

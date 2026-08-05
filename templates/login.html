@@ -2,9 +2,10 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#121f27">
   <title>登录 · SG Quant</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}?v=20260806a">
 </head>
 <body class="login-body">
   <main class="login-shell">
@@ -29,7 +30,7 @@
         <input id="password" name="password" type="password" autocomplete="current-password" autofocus required placeholder="输入访问密码">
         <button class="primary full" type="submit">进入 SG Quant</button>
       </form>
-      <small class="login-note">仅限授权用户访问</small>
+      <small class="login-note">仅限授权用户访问 · UI 2026.08.06</small>
     </section>
   </main>
 </body>
