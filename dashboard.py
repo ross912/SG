@@ -30,6 +30,14 @@ from config import OUTPUT_DIR, ROOT
 from data.index_filter import load_cached_market_overview
 from data.storage import load_kline
 from screening.scanner import scan_stock
+from services.chat_history import (
+    add_message as add_chat_message,
+    conversation_exists,
+    create_conversation,
+    delete_conversation,
+    get_messages as get_chat_messages,
+    list_conversations,
+)
 from services.deepseek import DeepSeekError, is_configured
 from services.market_ai import (
     generate_daily_market_summary,
@@ -164,6 +172,28 @@ def chat_page():
     return render_template("chat.html", page="chat")
 
 
+@app.get("/api/chat/conversations")
+def chat_conversations_api():
+    return jsonify({"conversations": list_conversations()})
+
+
+@app.get("/api/chat/conversations/<conversation_id>")
+def chat_conversation_api(conversation_id: str):
+    if not conversation_exists(conversation_id):
+        return jsonify({"error": "对话不存在或已超过 30 天"}), 404
+    return jsonify({
+        "conversation_id": conversation_id,
+        "messages": get_chat_messages(conversation_id),
+    })
+
+
+@app.delete("/api/chat/conversations/<conversation_id>")
+def delete_chat_conversation_api(conversation_id: str):
+    if not delete_conversation(conversation_id):
+        return jsonify({"error": "对话不存在或已删除"}), 404
+    return jsonify({"deleted": True})
+
+
 @app.get("/api/health")
 def health():
     progress = _current_progress()
@@ -279,14 +309,14 @@ def generate_summary_api():
 def chat_api():
     payload = request.get_json(silent=True) or {}
     question = str(payload.get("question", "")).strip()
-    history = payload.get("history", [])
+    conversation_id = str(payload.get("conversation_id", "")).strip()
     web_search_mode = str(payload.get("web_search", "auto")).strip().lower()
     if not question:
         return jsonify({"error": "问题不能为空"}), 400
     if len(question) > 1200:
         return jsonify({"error": "单次问题不能超过 1200 字"}), 400
-    if not isinstance(history, list):
-        return jsonify({"error": "对话历史格式错误"}), 400
+    if conversation_id and not re.fullmatch(r"[0-9a-f]{32}", conversation_id):
+        return jsonify({"error": "对话标识格式错误"}), 400
     if web_search_mode not in {"auto", "on", "off"}:
         return jsonify({"error": "联网模式无效"}), 400
     if not is_configured():
@@ -294,9 +324,22 @@ def chat_api():
     if not _allow_chat_request():
         return jsonify({"error": "请求过于频繁，请稍后再试"}), 429
 
+    if conversation_id:
+        if not conversation_exists(conversation_id):
+            return jsonify({"error": "对话不存在或已超过 30 天"}), 404
+        history = [
+            {"role": item["role"], "content": item["content"]}
+            for item in get_chat_messages(conversation_id, limit=10)
+        ]
+    else:
+        conversation_id = create_conversation(question)
+        history = []
+    add_chat_message(conversation_id, "user", question)
+
     @stream_with_context
     def event_stream():
         try:
+            yield _sse({"conversation_id": conversation_id})
             web_payload = None
             triggered = should_search_web(question, web_search_mode)
             if triggered:
@@ -336,10 +379,15 @@ def chat_api():
                     },
                     "status": "本次问题使用平台本地数据",
                 })
+            answer_parts = []
             for chunk in stream_market_chat(
                 question, history, web_search_payload=web_payload,
             ):
+                answer_parts.append(chunk)
                 yield _sse({"delta": chunk})
+            answer = "".join(answer_parts).strip()
+            if answer:
+                add_chat_message(conversation_id, "assistant", answer)
             yield _sse({"done": True})
         except DeepSeekError as error:
             yield _sse({"error": str(error), "done": True})

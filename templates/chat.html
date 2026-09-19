@@ -5,45 +5,58 @@
   <div>
     <div class="eyebrow">CONTEXT-AWARE CHAT · 数据问答</div>
     <h1>向市场研究台提问</h1>
-    <p>DeepSeek 综合基本面价值榜、四份技术榜单、平台行情与按需联网检索的近期资讯回答。</p>
+    <p>DeepSeek 综合基本面价值榜、四份技术榜单、平台行情与按需联网检索的近期资讯回答。对话记录保留 30 天。</p>
   </div>
 </section>
-<section class="card chat-card">
-  <div class="chat-context">
-    <div class="context-primary">
-      <span class="context-light"></span>
-      <strong>平台数据已接入</strong>
-      <span id="searchState">智能联网待命</span>
+<section class="chat-shell">
+  <aside class="card chat-history-panel">
+    <div class="chat-history-heading">
+      <div><span class="utility-label">HISTORY</span><h2>最近对话</h2></div>
+      <button id="newConversation" class="ghost small" type="button">新对话</button>
     </div>
-    <label class="network-mode" for="webSearchMode">
-      <span>资讯检索</span>
-      <select id="webSearchMode">
-        <option value="auto" selected>智能触发</option>
-        <option value="on">本次始终联网</option>
-        <option value="off">仅使用本地数据</option>
-      </select>
-    </label>
-  </div>
-  <div id="messages" class="messages">
-    <div class="message assistant"><span class="message-role">SG RESEARCH</span><div class="message-body"><p>可以询问市场强弱、榜单变化、新闻线索或个股信息。涉及最新消息时会按需联网，并在回答下方列出资讯来源。</p></div></div>
-  </div>
-  <div class="prompt-suggestions" aria-label="常用问题">
-    <button type="button" data-question="今天市场整体强弱如何？">判断今日强弱</button>
-    <button type="button" data-question="请总结今天榜单中最值得关注的共同特征。">概括榜单特征</button>
-    <button type="button" data-question="今天的财经新闻有哪些可能影响市场的主线？">提炼新闻主线</button>
-  </div>
-  <form id="chatForm" class="chat-form">
-    <div class="composer">
-      <textarea id="question" maxlength="1200" rows="3" placeholder="输入市场、榜单、新闻或个股问题…" required></textarea>
-      <span class="composer-hint">Enter 发送 · Shift + Enter 换行</span>
+    <div id="conversationList" class="conversation-list" aria-live="polite">
+      <p class="conversation-empty">正在读取历史记录…</p>
     </div>
-    <button id="sendButton" class="primary" type="submit">发送问题</button>
-  </form>
+    <p class="chat-retention">自动保留最近 30 天</p>
+  </aside>
+  <section class="card chat-card">
+    <div class="chat-context">
+      <div class="context-primary">
+        <span class="context-light"></span>
+        <strong>平台数据已接入</strong>
+        <span id="searchState">智能联网待命</span>
+      </div>
+      <label class="network-mode" for="webSearchMode">
+        <span>资讯检索</span>
+        <select id="webSearchMode">
+          <option value="auto" selected>智能触发</option>
+          <option value="on">本次始终联网</option>
+          <option value="off">仅使用本地数据</option>
+        </select>
+      </label>
+    </div>
+    <div id="messages" class="messages"></div>
+    <div class="prompt-suggestions" aria-label="常用问题">
+      <button type="button" data-question="今天市场整体强弱如何？">判断今日强弱</button>
+      <button type="button" data-question="请总结今天榜单中最值得关注的共同特征。">概括榜单特征</button>
+      <button type="button" data-question="今天的财经新闻有哪些可能影响市场的主线？">提炼新闻主线</button>
+    </div>
+    <form id="chatForm" class="chat-form">
+      <div class="composer">
+        <textarea id="question" maxlength="1200" rows="3" placeholder="输入市场、榜单、新闻或个股问题…" required></textarea>
+        <span class="composer-hint">Enter 发送 · Shift + Enter 换行</span>
+      </div>
+      <button id="sendButton" class="primary" type="submit">发送问题</button>
+    </form>
+  </section>
 </section>
 {% endblock %}
 {% block scripts %}
 <script>
-  const history = [];
+  let conversationId = null;
+  let isBusy = false;
+  const welcomeText = '可以询问市场强弱、榜单变化、新闻线索或个股信息。涉及最新消息时会按需联网，并在回答下方列出资讯来源。';
+
   function addMessage(role, content = '') {
     const node = document.createElement('div');
     node.className = `message ${role}`;
@@ -52,11 +65,17 @@
     label.textContent = role === 'user' ? 'YOU' : 'SG RESEARCH';
     const body = document.createElement('div');
     body.className = 'message-body';
-    body.textContent = content;
+    if (role === 'assistant') renderAnswerMarkdown(body, content, true);
+    else body.textContent = content;
     node.append(label, body);
     document.getElementById('messages').appendChild(node);
     node.scrollIntoView({behavior:'smooth', block:'end'});
     return body;
+  }
+
+  function showWelcome() {
+    document.getElementById('messages').innerHTML = '';
+    addMessage('assistant', welcomeText);
   }
 
   function renderAnswerMarkdown(node, markdown, immediate = false) {
@@ -100,6 +119,85 @@
     messageNode.appendChild(section);
   }
 
+  function setBusy(value) {
+    isBusy = value;
+    document.getElementById('sendButton').disabled = value;
+    document.getElementById('newConversation').disabled = value;
+    document.querySelectorAll('.conversation-item').forEach(node => { node.disabled = value; });
+  }
+
+  function renderConversationList(rows) {
+    const list = document.getElementById('conversationList');
+    list.innerHTML = '';
+    if (!rows.length) {
+      list.innerHTML = '<p class="conversation-empty">还没有历史对话</p>';
+      return;
+    }
+    rows.forEach(row => {
+      const wrapper = document.createElement('div');
+      wrapper.className = `conversation-row${row.id === conversationId ? ' active' : ''}`;
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'conversation-item';
+      open.disabled = isBusy;
+      const title = document.createElement('strong');
+      title.textContent = row.title;
+      const meta = document.createElement('span');
+      meta.textContent = `${SGQ.localTime(row.updated_at)} · ${row.message_count} 条`;
+      const preview = document.createElement('small');
+      preview.textContent = row.preview || '';
+      open.append(title, meta, preview);
+      open.addEventListener('click', () => loadConversation(row.id).catch(error => alert(error.message)));
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'conversation-delete';
+      remove.setAttribute('aria-label', `删除对话：${row.title}`);
+      remove.textContent = '×';
+      remove.addEventListener('click', () => removeConversation(row.id, row.title).catch(error => alert(error.message)));
+      wrapper.append(open, remove);
+      list.appendChild(wrapper);
+    });
+  }
+
+  async function refreshConversations() {
+    const response = await SGQ.api('/api/chat/conversations');
+    if (!response.ok) throw new Error('历史对话读取失败');
+    const data = await response.json();
+    renderConversationList(data.conversations || []);
+  }
+
+  async function loadConversation(id) {
+    if (isBusy) return;
+    const response = await SGQ.api(`/api/chat/conversations/${id}`);
+    if (!response.ok) {
+      await refreshConversations();
+      throw new Error('对话不存在或已超过 30 天');
+    }
+    const data = await response.json();
+    conversationId = data.conversation_id;
+    document.getElementById('messages').innerHTML = '';
+    (data.messages || []).forEach(item => addMessage(item.role, item.content));
+    if (!data.messages?.length) showWelcome();
+    document.getElementById('searchState').textContent = '已载入历史对话';
+    await refreshConversations();
+  }
+
+  async function removeConversation(id, title) {
+    if (isBusy || !confirm(`删除“${title}”？此操作无法撤销。`)) return;
+    const response = await SGQ.api(`/api/chat/conversations/${id}`, {method:'DELETE'});
+    if (!response.ok && response.status !== 404) throw new Error('删除失败');
+    if (conversationId === id) startNewConversation();
+    await refreshConversations();
+  }
+
+  function startNewConversation() {
+    conversationId = null;
+    showWelcome();
+    document.getElementById('searchState').textContent = '智能联网待命';
+    document.getElementById('question').focus();
+    refreshConversations().catch(() => {});
+  }
+
   async function ask(question) {
     addMessage('user', question);
     const answerNode = addMessage('assistant', '');
@@ -109,7 +207,7 @@
     searchState.textContent = mode === 'off' ? '仅使用本地数据' : '正在判断是否需要联网…';
     const response = await SGQ.api('/api/chat', {
       method:'POST',
-      body:JSON.stringify({question, history:history.slice(-10), web_search:mode})
+      body:JSON.stringify({question, conversation_id:conversationId, web_search:mode})
     });
     if (!response.ok) {
       const data = await response.json();
@@ -130,6 +228,7 @@
         const line = event.split('\n').find(item => item.startsWith('data:'));
         if (!line) continue;
         const data = JSON.parse(line.slice(5).trim());
+        if (data.conversation_id) conversationId = data.conversation_id;
         if (data.status) searchState.textContent = data.status;
         if (data.search) {
           webSources = data.search.results || [];
@@ -152,19 +251,18 @@
     answerNode.classList.remove('streaming');
     renderWebSources(answerNode.parentElement, webSources);
     if (webSources.length) searchState.textContent = `已结合 ${webSources.length} 条近期资讯`;
-    if (answer) history.push({role:'user', content:question}, {role:'assistant', content:answer});
+    await refreshConversations();
   }
 
   document.getElementById('chatForm').addEventListener('submit', async event => {
     event.preventDefault();
     const input = document.getElementById('question');
     const question = input.value.trim();
-    if (!question) return;
+    if (!question || isBusy) return;
     input.value = '';
-    const button = document.getElementById('sendButton');
-    button.disabled = true;
+    setBusy(true);
     try { await ask(question); } catch (error) { addMessage('assistant', error.message); }
-    finally { button.disabled = false; input.focus(); }
+    finally { setBusy(false); input.focus(); }
   });
   document.getElementById('question').addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
@@ -172,12 +270,18 @@
       document.getElementById('chatForm').requestSubmit();
     }
   });
+  document.getElementById('newConversation').addEventListener('click', startNewConversation);
   document.querySelectorAll('[data-question]').forEach(button => {
     button.addEventListener('click', () => {
       const input = document.getElementById('question');
       input.value = button.dataset.question;
       input.focus();
     });
+  });
+
+  showWelcome();
+  refreshConversations().catch(error => {
+    document.getElementById('conversationList').innerHTML = `<p class="conversation-empty">${SGQ.escape(error.message)}</p>`;
   });
 </script>
 {% endblock %}
