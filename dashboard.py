@@ -26,7 +26,7 @@ from flask import (
     url_for,
 )
 
-from config import OUTPUT_DIR, ROOT, TREND_MODEL_STATUS
+from config import OUTPUT_DIR, ROOT
 from data.index_filter import load_cached_market_overview
 from data.storage import load_kline
 from screening.scanner import scan_stock
@@ -60,10 +60,10 @@ app.config.update(
 
 LISTS = {
     "fundamental30": "基本面价值 · 全市场 Top 30",
-    "main10": "趋势跟踪 · 主板 Top 10",
     "all30": "趋势跟踪 · 全市场 Top 30",
-    "mr_main10": "均值回归 · 主板 Top 10",
+    "main10": "趋势跟踪 · 主板 Top 10",
     "mr_all30": "均值回归 · 全市场 Top 30",
+    "mr_main10": "均值回归 · 主板 Top 10",
 }
 _FILE_PATTERN = re.compile(
     r"^stock_pool_(\d{4}-\d{2}-\d{2})_"
@@ -145,8 +145,7 @@ def index():
     return render_template(
         "dashboard.html",
         page="dashboard",
-        lists=LISTS,
-        trend_model_status=TREND_MODEL_STATUS,
+        lists=[{"id": key, "label": label} for key, label in LISTS.items()],
     )
 
 

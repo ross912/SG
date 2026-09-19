@@ -12,14 +12,6 @@
   </button>
 </section>
 
-<section class="model-status model-status-warning" aria-label="趋势模型状态">
-  <div>
-    <span class="utility-label">TREND MODEL STATUS</span>
-    <strong>{{ trend_model_status.active_label }}</strong>
-  </div>
-  <p>{{ trend_model_status.message }}</p>
-  <span class="status-pill" data-state="failed">{{ trend_model_status.replacement_label }}</span>
-</section>
 
 <section class="card progress-card">
   <div class="progress-head">
@@ -44,6 +36,7 @@
     <div class="card-meta" id="meta">读取中…</div>
   </div>
   <div class="table-wrap" id="content"></div>
+  <div class="pool-cards" id="poolCards"></div>
 </section>
 {% endblock %}
 {% block scripts %}
@@ -59,10 +52,13 @@
   };
 
   function renderTabs() {
-    document.getElementById('tabs').innerHTML = Object.entries(lists).map(([id, label]) =>
+    document.getElementById('tabs').innerHTML = lists.map(({id, label}) =>
       `<button class="tab ${id === current ? 'active' : ''}" onclick="loadPool('${id}')">${SGQ.escape(label)}</button>`
     ).join('');
   }
+
+  /* ---- 桌面端：五榜单统一三行结构（无横向滚动） ---- */
+  const hasVal = (x) => !(x === undefined || x === null || String(x).trim() === '');
 
   async function loadPool(id) {
     current = id; renderTabs();
@@ -71,34 +67,53 @@
     document.getElementById('meta').textContent = `${data.label} · 数据日期 ${data.date || '暂无'} · ${data.rows.length} 只`;
     if (!data.rows.length) {
       document.getElementById('content').innerHTML = '<div class="empty">还没有该榜单，请先执行全市场流程。</div>';
+      document.getElementById('poolCards').innerHTML = '';
       return;
     }
-    const columns = id === 'fundamental30'
-      ? ['排名','代码','名称','所属行业','模型','综合得分','质量分','估值分','历史成长分','未来空间分','风险控制分','未来数据置信度','暴雷风险','入选理由','未来空间依据','风险提示','行业景气','市占变化','盈利预期','研发证据','订单/产能证据','ROE','营收同比','净利润同比','PE','PE口径','PB','股息率(TTM)','质押比例','最新价','财报期','估值日期']
-      : ['排名','代码','名称','所属概念','综合得分','均线信号','突破信号','RSRS信号','动量信号','风险警告','最新价','涨跌幅','换手率'];
-    document.getElementById('content').innerHTML = `<table><thead><tr>${columns.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${data.rows.map(row =>
+    document.getElementById('content').innerHTML = id === 'fundamental30'
+      ? `<div class="board-list">${data.rows.map(row => fundamentalRowB(row)).join('')}</div>`
+      : technicalTable(data.rows);
+    renderPoolCards(id, data.rows);
+  }
+
+
+  function fundamentalRowB(row) {
+    const subs = [['质','质量分'],['估','估值分'],['历','历史成长分'],['空','未来空间分'],['控','风险控制分']];
+    const mets = [['ROE','ROE'],['营收同比','营收同比'],['净利同比','净利润同比'],['PE','PE'],['PB','PB'],['股息率','股息率(TTM)'],['质押','质押比例'],['最新价','最新价'],['财报期','财报期'],['估值日期','估值日期']];
+    const dets = [['入选理由','入选理由'],['未来空间依据','未来空间依据'],['风险提示','风险提示'],['行业景气','行业景气'],['市占变化','市占变化'],['盈利预期','盈利预期'],['研发证据','研发证据'],['订单/产能证据','订单/产能证据']]
+      .filter(([k]) => hasVal(row[k]));
+    return `<div class="board-row">
+      <div class="br-line br-head">
+        <span class="rank">${val(row['排名'])}</span>
+        <span class="br-name">${val(row['名称'])}<span class="code">${val(row['代码'])}</span></span>
+        <span class="br-ind">${val(row['所属行业'])} · ${val(row['模型'])}</span>
+        <span class="br-pills">
+          <span class="signal ${levelTone(row['暴雷风险'], '低')}">暴雷 ${val(row['暴雷风险'])}</span>
+          <span class="signal ${levelTone(row['未来数据置信度'], '高')}">置信 ${val(row['未来数据置信度'])}</span>
+        </span>
+        <span class="br-subs">${subs.map(([s, k]) => `<span><i>${s}</i><b>${val(row[k])}</b></span>`).join('')}</span>
+        <span class="br-score">${val(row['综合得分'])}</span>
+      </div>
+      <div class="br-line br-metrics">${mets.filter(([, c]) => hasVal(row[c])).map(([k, c]) => `<span><i>${k}</i>${val(row[c])}</span>`).join('')}</div>
+      ${dets.length ? `<div class="br-line br-dets">${dets.map(([k, c]) => `<div class="br-det"><i>${k}</i><p>${SGQ.escape(row[c])}</p></div>`).join('')}</div>` : ''}
+    </div>`;
+  }
+
+  /* ---- 技术四榜：沿用原表格渲染 ---- */
+  function technicalTable(rows) {
+    const columns = ['排名','代码','名称','所属概念','综合得分','均线信号','突破信号','RSRS信号','动量信号','风险警告','最新价','涨跌幅','换手率'];
+    return `<table><thead><tr>${columns.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map(row =>
       `<tr>${columns.map(c => {
         const raw = row[c];
         if (c === '排名') return `<td><span class="rank">${SGQ.escape(raw)}</span></td>`;
         if (c === '代码') return `<td class="code">${SGQ.escape(raw)}</td>`;
-        if (['综合得分','质量分','估值分','历史成长分','未来空间分','风险控制分'].includes(c)) return `<td class="score-value">${SGQ.escape(raw)}</td>`;
+        if (c === '综合得分') return `<td class="score-value">${SGQ.escape(raw)}</td>`;
         if (['均线信号','突破信号','RSRS信号','动量信号'].includes(c)) {
           const signal = String(raw || '');
           const tone = signal.includes('强') ? 'positive' : signal.includes('弱') ? 'negative' : 'neutral';
           return `<td><span class="signal ${tone}">${SGQ.escape(signal || '—')}</span></td>`;
         }
         if (c === '风险警告') return `<td>${raw ? `<span class="risk">${SGQ.escape(raw)}</span>` : '<span class="quiet">—</span>'}</td>`;
-        if (c === '暴雷风险') {
-          const level = String(raw || '');
-          const tone = level === '低' ? 'positive' : level === '中' ? 'neutral' : 'negative';
-          return `<td><span class="signal ${tone}">${SGQ.escape(level || '—')}</span></td>`;
-        }
-        if (c === '未来数据置信度') {
-          const level = String(raw || '');
-          const tone = level === '高' ? 'positive' : level === '中' ? 'neutral' : 'negative';
-          return `<td><span class="signal ${tone}">${SGQ.escape(level || '—')}</span></td>`;
-        }
-        if (c === '风险提示') return `<td><span class="risk">${SGQ.escape(raw || '数据不足')}</span></td>`;
         if (c === '涨跌幅') {
           const value = parseFloat(String(raw).replace('%','')) || 0;
           return `<td class="${value > 0 ? 'value-up' : value < 0 ? 'value-down' : ''}">${SGQ.escape(raw)}</td>`;
@@ -106,6 +121,77 @@
         return `<td>${SGQ.escape(raw)}</td>`;
       }).join('')}</tr>`
     ).join('')}</tbody></table>`;
+  }
+
+  /* ---- 移动端榜单卡片（≤820px 视口由 CSS 切换显示） ---- */
+  const val = (x) => (x === undefined || x === null || x === '') ? '—' : SGQ.escape(x);
+  const signalTone = (s) => String(s || '').includes('强') ? 'positive'
+    : String(s || '').includes('弱') ? 'negative' : 'neutral';
+  const levelTone = (s, high) => String(s || '') === high ? 'positive'
+    : String(s || '') === '中' ? 'neutral' : 'negative';
+
+  function cardHead(row, scopeKey) {
+    const top = Number.parseInt(row['排名'], 10) <= 3;
+    return `<div class="pc-head">
+      <span class="pc-rank${top ? ' top' : ''}">${val(row['排名'])}</span>
+      <div class="pc-title"><b>${val(row['名称'])}</b><span class="pc-code">${val(row['代码'])}</span></div>
+      <span class="pc-scope">${val(row[scopeKey])}</span>
+    </div>`;
+  }
+
+  function fundamentalCard(row) {
+    const subs = ['质量分','估值分','历史成长分','未来空间分','风险控制分'];
+    const metrics = [
+      ['ROE', row['ROE']], ['营收同比', row['营收同比']], ['净利同比', row['净利润同比']],
+      ['PE', row['PE']], ['PB', row['PB']], ['股息率', row['股息率(TTM)']], ['最新价', row['最新价']]
+    ];
+    const details = [
+      ['入选理由', row['入选理由']], ['未来空间依据', row['未来空间依据']],
+      ['风险提示', row['风险提示']], ['行业景气', row['行业景气']],
+      ['市占变化', row['市占变化']], ['盈利预期', row['盈利预期']],
+      ['研发证据', row['研发证据']], ['订单/产能证据', row['订单/产能证据']]
+    ].filter(([, v]) => v && String(v).trim());
+    return `<article class="pool-card">
+      ${cardHead(row, '所属行业')}
+      <div class="pc-score-row">
+        <span class="pc-score">${val(row['综合得分'])}</span><span class="pc-score-label">综合得分</span>
+        <span class="pc-pills">
+          <span class="signal ${levelTone(row['暴雷风险'], '低')}">暴雷 ${val(row['暴雷风险'])}</span>
+          <span class="signal ${levelTone(row['未来数据置信度'], '高')}">置信 ${val(row['未来数据置信度'])}</span>
+        </span>
+      </div>
+      <div class="pc-grid">${subs.map(k =>
+        `<div><i>${k.replace('分','')}</i><b>${val(row[k])}</b></div>`).join('')}</div>
+      <div class="pc-metrics">${metrics.map(([k, v]) =>
+        `<span><i>${k}</i>${val(v)}</span>`).join('')}</div>
+      ${details.length ? `<details class="pc-more"><summary>入选理由与风险细节</summary>
+        ${details.map(([k, v]) => `<div class="pc-detail-row"><i>${k}</i><p>${SGQ.escape(v)}</p></div>`).join('')}
+      </details>` : ''}
+    </article>`;
+  }
+
+  function technicalCard(row) {
+    const signals = ['均线信号','突破信号','RSRS信号','动量信号'];
+    const change = parseFloat(String(row['涨跌幅'] || '').replace('%','')) || 0;
+    return `<article class="pool-card">
+      ${cardHead(row, '所属概念')}
+      <div class="pc-score-row">
+        <span class="pc-score">${val(row['综合得分'])}</span><span class="pc-score-label">综合得分</span>
+        <span class="pc-pills">
+          <span class="pc-price">${val(row['最新价'])}</span>
+          <span class="${change > 0 ? 'value-up' : change < 0 ? 'value-down' : ''}">${val(row['涨跌幅'])}</span>
+        </span>
+      </div>
+      <div class="pc-signals">${signals.map(k =>
+        `<div><i>${k.replace('信号','')}</i><span class="signal ${signalTone(row[k])}">${val(row[k])}</span></div>`).join('')}</div>
+      <div class="pc-metrics"><span><i>换手率</i>${val(row['换手率'])}</span>
+        ${row['风险警告'] ? `<span class="risk">${SGQ.escape(row['风险警告'])}</span>` : ''}</div>
+    </article>`;
+  }
+
+  function renderPoolCards(id, rows) {
+    document.getElementById('poolCards').innerHTML = rows.map(row =>
+      id === 'fundamental30' ? fundamentalCard(row) : technicalCard(row)).join('');
   }
 
   async function refreshStatus() {
